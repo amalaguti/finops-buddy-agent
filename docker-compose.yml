@@ -1,0 +1,22 @@
+services:
+  finops-buddy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: finops-buddy:latest
+    container_name: finops-buddy
+    ports:
+      - "8000:8000"
+    volumes:
+      # AWS credentials (profiles, SSO tokens, config)
+      # Note: NOT read-only - botocore needs to write to sso/cache/ for SSO token operations
+      - ~/.aws:/root/.aws
+      # Environment configuration
+      - ./.env.local:/app/.env.local:ro
+    environment:
+      # Ensure AWS SDK uses the mounted config
+      - AWS_CONFIG_FILE=/root/.aws/config
+      - AWS_SHARED_CREDENTIALS_FILE=/root/.aws/credentials
+      # Bind to all interfaces so host can connect
+      - FINOPS_SERVER_HOST=0.0.0.0
+    restart: unless-stopped

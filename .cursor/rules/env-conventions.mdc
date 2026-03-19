@@ -1,0 +1,9 @@
+---
+description: Environment variable naming — all app env vars use FINOPS_ prefix.
+alwaysApply: true
+---
+
+# Environment variables
+
+- All application-specific environment variables **must** use the **`FINOPS_`** prefix (e.g. `FINOPS_MASTER_ACCOUNT_ID`, `FINOPS_EXCLUDED_PROFILES`).
+- Do not introduce new env vars without the `FINOPS_` prefix for this project.

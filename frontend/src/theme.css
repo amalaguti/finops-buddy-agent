@@ -1,0 +1,126 @@
+/* Semantic theme tokens – values set per theme via [data-theme="..."] */
+:root,
+[data-theme] {
+  --finops-bg-page: #f8fafc;
+  --finops-bg-surface: #ffffff;
+  --finops-bg-header: #334155;
+  --finops-text-primary: #1e293b;
+  --finops-text-secondary: #64748b;
+  --finops-text-header: #f1f5f9;
+  --finops-border: #e2e8f0;
+  --finops-accent: #475569;
+  --finops-btn-primary: #334155;
+  --finops-btn-secondary: #e2e8f0;
+  --finops-badge: #f59e0b;
+  --finops-badge-text: #ffffff;
+  --finops-resize-handle: #e2e8f0;
+  --finops-resize-handle-hover: #0ea5e9;
+}
+
+/* Slate (default) – current look */
+[data-theme='slate'] {
+  --finops-bg-page: #f8fafc;
+  --finops-bg-surface: #ffffff;
+  --finops-bg-header: #334155;
+  --finops-text-primary: #1e293b;
+  --finops-text-secondary: #64748b;
+  --finops-text-header: #f1f5f9;
+  --finops-border: #e2e8f0;
+  --finops-accent: #475569;
+  --finops-btn-primary: #334155;
+  --finops-btn-secondary: #e2e8f0;
+  --finops-badge: #f59e0b;
+  --finops-badge-text: #ffffff;
+  --finops-resize-handle: #e2e8f0;
+  --finops-resize-handle-hover: #0ea5e9;
+}
+
+/* Ocean – cool blues and teals */
+[data-theme='ocean'] {
+  --finops-bg-page: #f0f9ff;
+  --finops-bg-surface: #ffffff;
+  --finops-bg-header: #0f766e;
+  --finops-text-primary: #0c4a6e;
+  --finops-text-secondary: #0e7490;
+  --finops-text-header: #f0fdfa;
+  --finops-border: #a5f3fc;
+  --finops-accent: #0d9488;
+  --finops-btn-primary: #0f766e;
+  --finops-btn-secondary: #ccfbf1;
+  --finops-badge: #0d9488;
+  --finops-badge-text: #ffffff;
+  --finops-resize-handle: #99f6e4;
+  --finops-resize-handle-hover: #14b8a6;
+}
+
+/* Forest – greens and earth tones */
+[data-theme='forest'] {
+  --finops-bg-page: #f0fdf4;
+  --finops-bg-surface: #ffffff;
+  --finops-bg-header: #166534;
+  --finops-text-primary: #14532d;
+  --finops-text-secondary: #15803d;
+  --finops-text-header: #f0fdf4;
+  --finops-border: #bbf7d0;
+  --finops-accent: #16a34a;
+  --finops-btn-primary: #166534;
+  --finops-btn-secondary: #dcfce7;
+  --finops-badge: #16a34a;
+  --finops-badge-text: #ffffff;
+  --finops-resize-handle: #86efac;
+  --finops-resize-handle-hover: #22c55e;
+}
+
+/* Sunset – warm ambers and oranges */
+[data-theme='sunset'] {
+  --finops-bg-page: #fffbeb;
+  --finops-bg-surface: #ffffff;
+  --finops-bg-header: #b45309;
+  --finops-text-primary: #78350f;
+  --finops-text-secondary: #a16207;
+  --finops-text-header: #fffbeb;
+  --finops-border: #fde68a;
+  --finops-accent: #d97706;
+  --finops-btn-primary: #b45309;
+  --finops-btn-secondary: #fef3c7;
+  --finops-badge: #ea580c;
+  --finops-badge-text: #ffffff;
+  --finops-resize-handle: #fcd34d;
+  --finops-resize-handle-hover: #f59e0b;
+}
+
+/* Midnight – dark blue/slate */
+[data-theme='midnight'] {
+  --finops-bg-page: #0f172a;
+  --finops-bg-surface: #1e293b;
+  --finops-bg-header: #1e3a5f;
+  --finops-text-primary: #f1f5f9;
+  --finops-text-secondary: #94a3b8;
+  --finops-text-header: #f1f5f9;
+  --finops-border: #334155;
+  --finops-accent: #38bdf8;
+  --finops-btn-primary: #2563eb;
+  --finops-btn-secondary: #334155;
+  --finops-badge: #f59e0b;
+  --finops-badge-text: #0f172a;
+  --finops-resize-handle: #475569;
+  --finops-resize-handle-hover: #38bdf8;
+}
+
+/* Neo-Matrix – Matrix + neo-futuristic */
+[data-theme='neo-matrix'] {
+  --finops-bg-page: #0a0a0a;
+  --finops-bg-surface: #111111;
+  --finops-bg-header: #0d1f0d;
+  --finops-text-primary: #00ff41;
+  --finops-text-secondary: #00d4aa;
+  --finops-text-header: #00ff41;
+  --finops-border: #003300;
+  --finops-accent: #00ff41;
+  --finops-btn-primary: #00ff41;
+  --finops-btn-secondary: #003300;
+  --finops-badge: #00ff41;
+  --finops-badge-text: #0a0a0a;
+  --finops-resize-handle: #004400;
+  --finops-resize-handle-hover: #00ff41;
+}

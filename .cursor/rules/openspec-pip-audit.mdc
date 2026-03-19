@@ -1,0 +1,16 @@
+---
+description: OpenSpec change application must run pip-audit once after all tasks complete.
+alwaysApply: true
+---
+
+# pip-audit dependency scan for OpenSpec changes
+
+When **applying** OpenSpec changes (implementing tasks):
+
+- **Run pip-audit** once after all tasks are complete (not after each task):
+  - **Scan:** `poetry run pip-audit`
+- **Update** dependencies to fixed versions when vulnerabilities with available fixes are found.
+- Vulnerabilities with no available fix MAY be ignored with `--ignore-vuln VULN-ID` and SHALL be documented.
+- When creating **tasks**, include a pip-audit step as the **final verification task** (after all implementation and testing).
+
+Implementation is not complete until pip-audit passes or all findings are addressed/documented.

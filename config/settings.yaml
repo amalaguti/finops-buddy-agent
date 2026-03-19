@@ -1,0 +1,127 @@
+# Template for app settings (use with FINOPS_CONFIG_FILE=config/settings.yaml or copy to XDG path).
+# Use placeholder names (e.g. account-A, account-B) instead of real account/profile names.
+
+# Blocklist: profiles to hide from "finops profiles"
+# excluded_profiles:
+#   - account-A
+#   - account-B
+
+# Allowlist: only these profiles are shown; all others are out of scope (takes precedence over excluded_profiles when set)
+# included_only_profiles:
+#   - account-A
+#   - account-B
+
+# Agent (chat): optional model override
+# - Without FINOPS_OPENAI_API_KEY: uses Bedrock; set model_id for a specific Bedrock model.
+# - With FINOPS_OPENAI_API_KEY: uses OpenAI; set model_id for e.g. gpt-4o, gpt-4o-mini.
+# Read-only guardrail: when true (default), blocks clearly mutating user requests before calling the agent.
+# - FINOPS_READ_ONLY_GUARDRAIL_INPUT_ENABLED: true/false (default true)
+# Verbose tool debug: when true (default), print tool/MCP inputs and responses in chat to help debug errors.
+# - FINOPS_VERBOSE_TOOL_DEBUG: true/false (default true)
+# Master/payer (preferred single source of truth): profile name for the payer account (e.g. payer SSO).
+# - FINOPS_MASTER_PROFILE: When set, (1) the HTTP API uses this profile for the long-lived chat agent
+#   for all /chat, /status, /tooling; (2) the Master/Payer account ID for context (master vs linked)
+#   is derived from this profile via STS if FINOPS_MASTER_ACCOUNT_ID is not set.
+# - FINOPS_MASTER_ACCOUNT_ID: Optional override. When set, used as the Master/Payer account ID for
+#   context. When unset, the app derives it from FINOPS_MASTER_PROFILE.
+# agent:
+#   model_id: "gpt-4o"
+#   temperature: 0.2   # OpenAI temperature (0..2). Some models (e.g. gpt-5-nano) only support 1.
+#   max_completion_tokens: 8192   # Max tokens per turn; higher reduces "max_tokens truncation" on long tool chains.
+#   read_only_guardrail_input_enabled: true
+#   verbose_tool_debug: true
+#   warm_on_startup: true   # Pre-warm chat agent at API startup for faster first request (default true)
+#   # Read-only tool allow-list: when set to a non-empty list, only these tool names may run (overrides built-in default).
+#   # When unset or empty, the app uses the built-in default (FinOps + known MCP read-only tools).
+#   read_only_allowed_tools:
+#     - get_current_date
+#     - current_period_costs
+#     - session-sql
+#   # Chart generation (matplotlib): optional DPI for generated chart images (default 100)
+#   # chart_dpi: 100
+#
+# AWS Knowledge MCP Server (remote): optional URL and enable/disable
+# - FINOPS_KNOWLEDGE_MCP_ENABLED: true/false (default true)
+# - FINOPS_KNOWLEDGE_MCP_URL: override default https://knowledge-mcp.global.api.aws
+# agent:
+#   knowledge_mcp_enabled: true
+#   knowledge_mcp_url: "https://knowledge-mcp.global.api.aws"
+#
+# AWS Billing and Cost Management MCP Server (local via uvx): optional enable and command
+# - FINOPS_MCP_BILLING_ENABLED: true/false (default false)
+# - FINOPS_MCP_BILLING_COMMAND: optional full command line (e.g. "uvx awslabs.billing-cost-management-mcp-server@latest")
+#   Requires uv installed; see README for uv install and Docker alternative.
+# agent:
+#   billing_mcp_enabled: false
+#   billing_mcp_command: "uvx awslabs.billing-cost-management-mcp-server@latest"
+#
+# AWS Documentation MCP Server (local via uvx): optional enable and command (default disabled)
+# - FINOPS_MCP_DOCUMENTATION_ENABLED: true/false (default false)
+# - FINOPS_MCP_DOCUMENTATION_COMMAND: optional full command line (e.g. "uvx awslabs.aws-documentation-mcp-server@latest")
+#   Requires uv installed. Tools: read_documentation, search_documentation, recommend.
+# agent:
+#   documentation_mcp_enabled: false
+#   documentation_mcp_command: "uvx awslabs.aws-documentation-mcp-server@latest"
+#
+# AWS Cost Explorer MCP Server (local via uvx): optional, disabled by default
+# BCM MCP server already covers Cost Explorer–style functionality; enable this for the dedicated Cost Explorer API if needed.
+# - FINOPS_MCP_COST_EXPLORER_ENABLED: true/false (default false)
+# - FINOPS_MCP_COST_EXPLORER_COMMAND: optional full command line (e.g. "uvx awslabs.cost-explorer-mcp-server@latest")
+#   Requires uv installed.
+# agent:
+#   cost_explorer_mcp_enabled: false
+#   cost_explorer_mcp_command: "uvx awslabs.cost-explorer-mcp-server@latest"
+#
+# AWS Pricing MCP Server (local via uvx): optional, disabled by default
+# Provides real-time AWS Pricing API access (service catalog, pricing queries, cost reports, project scan).
+# Requires IAM pricing:* when enabled.
+# - FINOPS_MCP_PRICING_ENABLED: true/false (default false)
+# - FINOPS_MCP_PRICING_COMMAND: optional full command line (e.g. "uvx awslabs.aws-pricing-mcp-server@latest")
+#   Requires uv installed.
+# agent:
+#   pricing_mcp_enabled: false
+#   pricing_mcp_command: "uvx awslabs.aws-pricing-mcp-server@latest"
+#
+# AWS Core MCP Server (local via uvx/uv): optional, disabled by default
+# Single process that proxies other MCP servers by role (e.g. aws-foundation, finops, solutions-architect).
+# When enabled, standalone Billing, Cost Explorer, and Pricing MCPs are not attached (Core provides those via roles).
+# - FINOPS_MCP_CORE_ENABLED: true/false (default false)
+# - FINOPS_MCP_CORE_COMMAND: optional full command line (e.g. "uvx awslabs.core-mcp-server@latest")
+# - FINOPS_MCP_CORE_ROLES: optional comma-separated roles (e.g. "aws-foundation,finops,solutions-architect")
+#   Default when unset: aws-foundation, finops, solutions-architect. Requires uv installed.
+# agent:
+#   core_mcp_enabled: false
+#   core_mcp_command: "uvx awslabs.core-mcp-server@latest"
+#   core_mcp_roles:
+#     - aws-foundation
+#     - finops
+#     - solutions-architect
+#
+# PDF MCP Server (for /print PDF export): Markdown → PDF via md-to-pdf-mcp (WeasyPrint)
+# - FINOPS_MCP_PDF_ENABLED: true/false (default true)
+# - FINOPS_MCP_PDF_COMMAND: optional full command (e.g. "uvx md-to-pdf-mcp")
+# agent:
+#   pdf_mcp_enabled: true
+#   pdf_mcp_command: "uvx md-to-pdf-mcp"
+#
+# Excel MCP Server (for /print xlsx export): create/write workbooks via excel-mcp-server
+# - FINOPS_MCP_EXCEL_ENABLED: true/false (default true)
+# - FINOPS_MCP_EXCEL_COMMAND: optional full command (e.g. "uvx excel-mcp-server stdio")
+# agent:
+#   excel_mcp_enabled: true
+#   excel_mcp_command: "uvx excel-mcp-server stdio"
+#
+# HTTP API server (finops serve): host, port, CORS
+# - FINOPS_SERVER_HOST: bind host (default 127.0.0.1)
+# - FINOPS_SERVER_PORT: bind port (default 8000)
+# - FINOPS_CORS_ORIGINS: comma-separated origins (e.g. http://localhost:3000); when unset, no CORS
+# server:
+#   host: "127.0.0.1"
+#   port: 8000
+#   cors_origins:
+#     - "http://localhost:3000"
+
+# Demo mode: mask real account names and IDs in the web UI for presentations
+# Access demo mode by navigating to /demo instead of /
+# Configuration is stored in config/demo.yaml (auto-generated, not committed)
+# Generate it with: finops demo-config

@@ -1,0 +1,64 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "finops-buddy"
+version = "0.1.35"
+description = "AI-powered FinOps assistant (CLI first) for AWS cost visibility and analysis"
+readme = "README.md"
+authors = []
+packages = [{ include = "finops_buddy", from = "src" }]
+include = [
+    { path = "src/finops_buddy/webui/**/*", format = ["sdist", "wheel"] },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4"
+boto3 = ">=1.28"
+python-dotenv = ">=1.0"
+PyYAML = ">=6.0"
+strands-agents = {version = ">=1.0", extras = ["openai"]}
+openpyxl = ">=3.1"
+markdown = ">=3.4"
+weasyprint = ">=62.0"
+pypdf = ">=6.9.1"
+xhtml2pdf = ">=0.2.13"
+reportlab = ">=4.0"
+fastapi = ">=0.100"
+uvicorn = {extras = ["standard"], version = ">=0.22"}
+pyjwt = "^2.12.0"
+matplotlib = ">=3.7"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.0"
+pytest-cov = ">=4.0"
+ruff = ">=0.1"
+bandit = ">=1.7"
+pip-audit = ">=2.7"
+
+[tool.poetry.scripts]
+finops = "finops_buddy.cli:main"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --tb=short"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.bandit]
+targets = ["src"]
+exclude_dirs = ["tests"]
+skips = ["B101", "B110", "B112"]

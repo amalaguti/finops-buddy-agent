@@ -1,0 +1,36 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+context: |
+  See openspec/docs/PROJECT_CONTEXT.md for goals, requirements, design, and constraints.
+  Tech: Python CLI/backend, Poetry for build and packaging, Strands Agents, React later. MVP = CLI only; read-only AWS.
+  All app environment variables must use the FINOPS_ prefix (e.g. FINOPS_MASTER_ACCOUNT_ID, FINOPS_EXCLUDED_PROFILES).
+
+rules:
+  specs:
+    - For each requirement, scenarios (#### Scenario:) are test cases; they SHALL be implemented as pytest unittest functions when the change is implemented.
+  tasks:
+    - Always work in a new branch, remind me to create a new branch when creating a new task and ask me to switch to the new branch when the task is ready to be implemented.
+    - Never implement or run apply on main. Before implementing, require a non-main branch (create one if currently on main).
+    - All environment variables introduced for this project must be prefixed with FINOPS_.
+    - "Include a task to run Ruff lint and format **before** the pytest tasks: run `poetry run ruff check .` and `poetry run ruff format .`; fix any issues. Then include a task to add or extend pytest unit tests: one test per spec scenario (WHEN/THEN) where practical; place tests in tests/ (e.g. test_<module>.py); name tests after the scenario."
+    - When the change introduces or changes user-facing settings or environment variables, include a task to document them in README.md (e.g. Configuration / Settings and environment section).
+    - "When the change introduces or changes app settings (YAML keys/structure), include a task to add or update `config/settings.yaml` as a template: all supported keys, sample/placeholder values (e.g. account-A, account-B), content may be commented out; keep it safe to commit."
