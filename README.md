@@ -8,7 +8,7 @@
 
 _Welcome screen, account context, costs dashboard (month to date), recommendations, anomalies, and savings plans._
 
-![FinOps Buddy chat workspace](docs/chat.png)
+![FinOps Buddy chat workspace](docs/chat1.png)
 
 _Chat workspace with cost analysis, top services, and the FinOps Buddy assistant._
 
