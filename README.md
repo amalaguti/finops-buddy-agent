@@ -69,7 +69,7 @@ poetry run finops serve
 
 Open **http://127.0.0.1:8000** (default bind). Ensure [AWS credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html) are available (e.g. `~/.aws`, `AWS_PROFILE`).
 
-**CLI examples:** `poetry run finops profiles` · `poetry run finops costs` · `poetry run finops chat`
+**CLI examples:** `poetry run finops whoami` · `poetry run finops profiles` · `poetry run finops costs` · `poetry run finops chat`
 
 **Full documentation:** **[docs/README.md](docs/README.md)** — configuration, running, Docker, development, MCP, features, demo mode.
 
@@ -77,14 +77,20 @@ Open **http://127.0.0.1:8000** (default bind). Ensure [AWS credentials](https://
 
 ## Documentation index
 
+Same set as **[docs/README.md](docs/README.md)** (canonical index); quick links below.
+
 | Doc | Use when you need… |
 |-----|---------------------|
 | [docs/README.md](docs/README.md) | Index of all docs |
 | [docs/FEATURES.md](docs/FEATURES.md) | UI screenshots, dashboard & chat, demo mode |
+| [docs/MCP.md](docs/MCP.md) | MCP server overview |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | `settings.yaml`, every `FINOPS_*` variable, chat/MCP behavior |
 | [docs/RUNNING.md](docs/RUNNING.md) | API & UI, Vite dev, full rebuild, Docker, Windows settings |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | OpenSpec workflow, lint/test, CLI & `/commands` in chat |
-| [docs/MCP.md](docs/MCP.md) | MCP server overview |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture (CLI, API, core, agent, MCP) |
+| [docs/DEPLOY_AWS_ARCHITECTURE.md](docs/DEPLOY_AWS_ARCHITECTURE.md) | Proposed AWS deployment (ECS, ALB, OIDC, Bedrock); PDF sibling |
+| [docs/CLOUD_CHANGES_WORK_ORDER.md](docs/CLOUD_CHANGES_WORK_ORDER.md) | Suggested order for related OpenSpec cloud changes |
+| [docs/build_deploy_architecture_pdf.py](docs/build_deploy_architecture_pdf.py) | Regenerate `DEPLOY_AWS_ARCHITECTURE.pdf` |
 | [config/settings.yaml](config/settings.yaml) | Commented template (safe placeholders) |
 
 ---
