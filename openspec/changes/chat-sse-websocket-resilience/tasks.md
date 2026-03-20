@@ -5,7 +5,7 @@
 ## 2. Specification and docs
 
 - [ ] 2.1 Decide **resume semantics** (full vs partial vs none) and document in `docs/` or deployment doc.
-- [ ] 2.2 Update README / settings template for any `FINOPS_*` transport flags.
+- [ ] 2.2 Update **`docs/CONFIGURATION.md`** and **`config/settings.yaml`** for any `FINOPS_*` transport flags.
 
 ## 3. Frontend
 

@@ -5,7 +5,7 @@
 ## 2. Design and API surface
 
 - [ ] 2.1 Finalize session key composition (e.g. `iss` + `sub`) and optional `FINOPS_*` flags for default vs per-user mode.
-- [ ] 2.2 Document behavior in README and `config/settings.yaml` when added.
+- [ ] 2.2 Document behavior in **`docs/CONFIGURATION.md`** and `config/settings.yaml` when added.
 
 ## 3. Implementation
 

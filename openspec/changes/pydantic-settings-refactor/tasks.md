@@ -22,7 +22,7 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 README + `config/settings.yaml` + strict mode.
+- [ ] 5.1 **`docs/CONFIGURATION.md`** + `config/settings.yaml` + strict mode (root README pointer if needed).
 
 ## 6. Spec sync
 

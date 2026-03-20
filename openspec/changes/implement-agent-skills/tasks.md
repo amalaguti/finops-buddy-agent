@@ -7,7 +7,7 @@
 
 - [ ] 2.1 Add optional `FINOPS_SKILLS_PATH` environment variable and, in settings loading, support `agent.skills_path` (or equivalent) for the skills directory path; implement precedence (env overrides file).
 - [ ] 2.2 Add or update `config/settings.yaml` with an optional `agent.skills_path` (or top-level `skills_path`) key in template form (commented or placeholder); keep safe to commit.
-- [ ] 2.3 Document Agent Skills in README.md: what they are, where to put skills (directory layout), SKILL.md format (frontmatter + body), and configuration (FINOPS_SKILLS_PATH, settings).
+- [ ] 2.3 Document Agent Skills in **`docs/CONFIGURATION.md`** (and a short pointer in root **README.md** if appropriate): what they are, where to put skills (directory layout), SKILL.md format (frontmatter + body), and configuration (FINOPS_SKILLS_PATH, settings).
 
 ## 3. Skills module
 

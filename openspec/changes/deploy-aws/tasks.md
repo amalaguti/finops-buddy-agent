@@ -11,7 +11,7 @@
 
 - [ ] 3.1 Add **reference deployment documentation** (`docs/` path as per spec) covering WAF, ALB HTTPS + OIDC, ECS Fargate, ECR, logging, stickiness/SSE, cross-account AssumeRole, Bedrock/IAM.
 - [ ] 3.2 Add **IaC scaffold** with README listing inputs (VPC, ACM, OIDC, secrets) and WAF/ALB logging; use placeholders only.
-- [ ] 3.3 Update **README.md** with a **Configuration / Settings and environment** section for all new `FINOPS_*` variables: `FINOPS_CLOUD_DEPLOYMENT_MODE`, `FINOPS_ASSUMABLE_TARGETS_JSON`, `FINOPS_TRUSTED_PROXY_AUTH`, `FINOPS_ALLOWED_IDP_GROUPS`, `FINOPS_LLM_PROVIDER`, and any header/trust notes.
+- [ ] 3.3 Update **`docs/CONFIGURATION.md`** (and link from root **README.md** if needed) with all new `FINOPS_*` variables: `FINOPS_CLOUD_DEPLOYMENT_MODE`, `FINOPS_ASSUMABLE_TARGETS_JSON`, `FINOPS_TRUSTED_PROXY_AUTH`, `FINOPS_ALLOWED_IDP_GROUPS`, `FINOPS_LLM_PROVIDER`, and any header/trust notes.
 - [ ] 3.4 Update **`config/settings.yaml`** template with new keys (commented or placeholder): `deployment.cloud_mode`, FinOps target map structure, `deployment.trusted_proxy_auth`, `deployment.allowed_idp_groups`, `deployment.llm_provider` (or equivalent names aligned with code).
 
 ## 4. Settings resolution (app-settings spec)

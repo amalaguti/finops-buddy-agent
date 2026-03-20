@@ -4,7 +4,7 @@
 
 ## 2. Config and docs
 
-- [ ] 2.1 Add settings keys + `FINOPS_*` for timeouts, breaker thresholds, cooldown; document in README and `config/settings.yaml`.
+- [ ] 2.1 Add settings keys + `FINOPS_*` for timeouts, breaker thresholds, cooldown; document in **`docs/CONFIGURATION.md`** and **`config/settings.yaml`**.
 
 ## 3. Implementation
 

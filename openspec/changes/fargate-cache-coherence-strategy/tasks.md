@@ -15,7 +15,7 @@
 ## 4. Quality
 
 - [ ] 4.1 Ruff, Bandit, pytest (including “no Redis when disabled”), pip-audit.
-- [ ] 4.2 README + `config/settings.yaml` for any new settings.
+- [ ] 4.2 **`docs/CONFIGURATION.md`** + `config/settings.yaml` for any new settings.
 
 ## 5. Spec sync
 

@@ -1,4 +1,5 @@
 # Template for app settings (use with FINOPS_CONFIG_FILE=config/settings.yaml or copy to XDG path).
+# Full key and env reference: docs/CONFIGURATION.md
 # Use placeholder names (e.g. account-A, account-B) instead of real account/profile names.
 
 # Blocklist: profiles to hide from "finops profiles"
@@ -50,7 +51,7 @@
 # AWS Billing and Cost Management MCP Server (local via uvx): optional enable and command
 # - FINOPS_MCP_BILLING_ENABLED: true/false (default false)
 # - FINOPS_MCP_BILLING_COMMAND: optional full command line (e.g. "uvx awslabs.billing-cost-management-mcp-server@latest")
-#   Requires uv installed; see README for uv install and Docker alternative.
+#   Requires uv installed; see docs/CONFIGURATION.md for uv install and Docker alternative.
 # agent:
 #   billing_mcp_enabled: false
 #   billing_mcp_command: "uvx awslabs.billing-cost-management-mcp-server@latest"

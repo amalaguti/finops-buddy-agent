@@ -32,5 +32,5 @@ rules:
     - Never implement or run apply on main. Before implementing, require a non-main branch (create one if currently on main).
     - All environment variables introduced for this project must be prefixed with FINOPS_.
     - "Include a task to run Ruff lint and format **before** the pytest tasks: run `poetry run ruff check .` and `poetry run ruff format .`; fix any issues. Then include a task to add or extend pytest unit tests: one test per spec scenario (WHEN/THEN) where practical; place tests in tests/ (e.g. test_<module>.py); name tests after the scenario."
-    - When the change introduces or changes user-facing settings or environment variables, include a task to document them in README.md (e.g. Configuration / Settings and environment section).
+    - When the change introduces or changes user-facing settings or environment variables, include a task to document them in docs/CONFIGURATION.md (and add a short pointer in root README.md if new users need to find it).
     - "When the change introduces or changes app settings (YAML keys/structure), include a task to add or update `config/settings.yaml` as a template: all supported keys, sample/placeholder values (e.g. account-A, account-B), content may be commented out; keep it safe to commit."

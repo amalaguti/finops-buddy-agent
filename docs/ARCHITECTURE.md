@@ -209,6 +209,7 @@ The important invariant is that the frontend only needs an API base URL and the 
 
 ## Related documents
 
-- [README](../README.md)
+- [Repository README](../README.md) — short landing page for GitHub
+- [Documentation index](./README.md) — all guides (features, config, running, development)
 - [AWS reference deployment (proposed)](./DEPLOY_AWS_ARCHITECTURE.md) — WAF, ALB OIDC, ECS Fargate, Bedrock, multi-account AssumeRole (OpenSpec `deploy-aws`)
 - [Cloud OpenSpec work order](./CLOUD_CHANGES_WORK_ORDER.md) — suggested sequence for `deploy-aws` and related multi-user changes

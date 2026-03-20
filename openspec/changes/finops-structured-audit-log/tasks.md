@@ -5,7 +5,7 @@
 ## 2. Schema and policy
 
 - [ ] 2.1 Finalize event type enum and field names; review with security/compliance.
-- [ ] 2.2 Document redaction defaults and optional content flag in README.
+- [ ] 2.2 Document redaction defaults and optional content flag in **`docs/CONFIGURATION.md`** (and root README pointer if needed).
 
 ## 3. Implementation
 

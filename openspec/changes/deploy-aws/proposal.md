@@ -8,7 +8,7 @@ FinOps Buddy today assumes **local AWS profiles** and a **single-user HTTP backe
 - Extend **AWS identity resolution** with a **cloud deployment mode**: base credentials from the **default boto3 chain** (including **ECS task role**), optional **configured mapping** of logical targets (e.g. account ids / labels) to **role ARNs** for **AssumeRole**, replacing reliance on `~/.aws` for listing and selection in that mode.
 - Extend the **HTTP API** with optional **trusted reverse-proxy authentication**: when enabled, requests **without** validated identity context (e.g. ALB OIDC-injected headers) are rejected; optional **IdP group allowlist** for a subset of employees; structured **audit logging** of the authenticated subject (without logging secrets).
 - Extend **app settings** with **FINOPS_-prefixed** environment variables and YAML keys for deployment mode, account/role mapping, trusted-proxy auth, group allowlist, and **Bedrock-first** LLM configuration for the deployed environment.
-- Update **README.md** and **`config/settings.yaml`** template for all new settings and env vars.
+- Update **`docs/CONFIGURATION.md`**, root **README.md** (pointer if needed), and **`config/settings.yaml`** template for all new settings and env vars.
 - **BREAKING** for deployments that relied on anonymous network access to the API: in cloud mode with trusted-proxy auth enabled, unauthenticated requests **must** fail (intended; local defaults unchanged).
 
 ## Capabilities

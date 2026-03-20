@@ -19,7 +19,7 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 README + `config/settings.yaml` + operator runbook snippet.
+- [ ] 5.1 **`docs/CONFIGURATION.md`** + `config/settings.yaml` + operator runbook snippet.
 
 ## 6. Spec sync
 
