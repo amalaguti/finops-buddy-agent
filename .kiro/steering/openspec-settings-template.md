@@ -1,0 +1,14 @@
+---
+inclusion: always
+---
+
+# Settings template: config/settings.yaml
+
+For **every OpenSpec change** that introduces or changes app settings (YAML config keys or structure):
+
+- **Produce or update** `config/settings.yaml` as the **template** for the app settings file.
+- **Template format:** Show all supported keys and structure; content MAY be commented out. Use **sample/placeholder values** (e.g. `account-A`, `account-B`, `profile-prod`) instead of real account or profile names so the file stays safe to commit and reuse.
+- When **creating tasks** for a change that adds or changes settings: include a task to add or update `config/settings.yaml` with the new keys in template form (commented or with placeholders).
+- When **implementing**: ensure `config/settings.yaml` reflects the current settings schema and serves as a copy-paste template for users (e.g. with `FINOPS_CONFIG_FILE` pointing at it).
+
+This keeps a single, committable template in the repo for all settings options.

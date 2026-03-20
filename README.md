@@ -125,6 +125,18 @@ The application is structured in three layers sharing a common Python core:
 
 For detailed architecture documentation, see [Architecture](docs/ARCHITECTURE.md).
 
+### Suggested AWS Deployment
+
+![AWS deployment architecture](docs/generated-diagrams/finops-buddy-aws-deployment.png)
+
+*Edge and runtime: WAF → ALB (HTTPS + OIDC) → ECS Fargate → Bedrock, with AssumeRole fan-out to member-account reader roles.*
+
+![Trust and identity layers](docs/generated-diagrams/finops-buddy-trust-identity.png)
+
+*Three trust layers: corporate IdP authentication, ECS task role hub, and least-privilege reader roles per member account.*
+
+For the full deployment guide, see [Deploy on AWS](docs/DEPLOY_AWS_ARCHITECTURE.md).
+
 ## Demo Mode
 
 For presentations and portfolio demos, FinOps Buddy supports a **demo mode** that masks real AWS account names, profile names, and account IDs with fake/placeholder values. This lets you demonstrate the application without exposing sensitive organizational information.

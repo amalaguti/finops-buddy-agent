@@ -1,0 +1,15 @@
+---
+inclusion: always
+---
+
+# Pytest unit tests for OpenSpec changes
+
+For **all OpenSpec-driven changes** (when implementing from specs or tasks):
+
+- **Generate pytest unittest functions** that map to the spec scenarios (each `#### Scenario:` with WHEN/THEN).
+- **One test function per scenario** where practical; name tests after the scenario (e.g. `test_list_profiles_excludes_configured_names`, `test_env_overrides_yaml_excluded_list`).
+- **Place tests** in `tests/` following existing layout (e.g. `tests/test_<module>.py` for the module under test). Create new test files if the change introduces new modules.
+- **Use pytest** (assert, fixtures, parametrize) and the project’s existing test style; prefer `tests/` over `unittest` style unless the project already uses `unittest` in that file.
+- When creating **tasks** for a change, include an explicit task to add or extend pytest tests for the new/updated behavior so implementation work always delivers tests.
+
+This rule applies to every change: specs define WHAT; tests verify it.

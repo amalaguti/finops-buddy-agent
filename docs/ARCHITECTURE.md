@@ -6,6 +6,8 @@ FinOps Buddy is designed as a **single-user, desktop-first, read-only** applicat
 
 ## High-level diagram
 
+![Application architecture](generated-diagrams/finops-buddy-app-architecture.png)
+
 ```mermaid
 flowchart LR
     U[User] --> CLI[CLI<br/>finops]
@@ -208,3 +210,4 @@ The important invariant is that the frontend only needs an API base URL and the 
 ## Related documents
 
 - [README](../README.md)
+- [AWS reference deployment (proposed)](./DEPLOY_AWS_ARCHITECTURE.md) — WAF, ALB OIDC, ECS Fargate, Bedrock, multi-account AssumeRole (OpenSpec `deploy-aws`)

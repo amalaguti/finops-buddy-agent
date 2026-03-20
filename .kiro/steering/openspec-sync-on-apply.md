@@ -1,0 +1,14 @@
+---
+inclusion: always
+---
+
+# OpenSpec sync on apply
+
+When **implementing** an OpenSpec change via `/opsx-apply` (or equivalent):
+
+- **After all tasks for the change are complete:** If the change has **delta specs** under `openspec/changes/<change-name>/specs/`, ensure they are **synced to main specs** (`openspec/specs/`) before treating the implementation as done or before archiving.
+- **Sync means:** Apply each delta spec to the canonical specs — create new `openspec/specs/<capability>/spec.md` for new capabilities, or merge ADDED/MODIFIED requirements and scenarios into existing `openspec/specs/<capability>/spec.md`.
+- **When to prompt:** After the last task is marked complete, if delta specs exist and have not yet been synced, prompt the user: "This change has delta specs. Sync them to main specs now (recommended) before archiving?" and perform sync if they confirm (or run sync as part of the apply-complete flow).
+- **Do not** leave a change fully implemented with unsynced delta specs unless the user explicitly chooses to skip sync.
+
+This keeps `openspec/specs/` in sync with implemented changes and avoids pending spec sync after archive.
