@@ -162,6 +162,7 @@ Exact header names for OIDC claims SHALL be taken from **current AWS documentati
 | Design | `openspec/changes/deploy-aws/design.md` |
 | Specs | `openspec/changes/deploy-aws/specs/` |
 | Tasks | `openspec/changes/deploy-aws/tasks.md` |
+| Suggested order (all cloud OpenSpec changes) | [CLOUD_CHANGES_WORK_ORDER.md](./CLOUD_CHANGES_WORK_ORDER.md) |
 
 ---
 
