@@ -11,5 +11,6 @@
 | [DEPLOY_AWS_ARCHITECTURE.md](./DEPLOY_AWS_ARCHITECTURE.md) | Proposed AWS deployment (ECS, ALB, OIDC, Bedrock) |
 | [CLOUD_CHANGES_WORK_ORDER.md](./CLOUD_CHANGES_WORK_ORDER.md) | Suggested order for related OpenSpec changes |
 | [build_deploy_architecture_pdf.py](./build_deploy_architecture_pdf.py) | Script to regenerate `DEPLOY_AWS_ARCHITECTURE.pdf` |
+| [../config/settings.yaml](../config/settings.yaml) | Commented settings template (safe placeholders) |
 
 Root **[README.md](../README.md)** is the short GitHub landing page; deep detail lives here.

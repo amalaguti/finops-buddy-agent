@@ -41,20 +41,7 @@
 
 ## Architecture (high level)
 
-```mermaid
-flowchart LR
-  U[User] --> CLI[CLI finops]
-  U --> UI[Web UI React]
-
-  UI -->|REST + SSE| API[FastAPI finops serve]
-  CLI --> CORE[Python core identity costs agent settings]
-  API --> CORE
-
-  CORE --> AGENT[LLM agent Strands]
-  AGENT --> MCP[MCP servers optional]
-  CORE --> AWS[AWS APIs STS CE profiles]
-  MCP --> AWS
-```
+![Application architecture](docs/generated-diagrams/finops-buddy-readme-architecture.png)
 
 More detail: **[Architecture](docs/ARCHITECTURE.md)** · Proposed **AWS** hosting: **[Deploy on AWS](docs/DEPLOY_AWS_ARCHITECTURE.md)** · **[Suggested OpenSpec order](docs/CLOUD_CHANGES_WORK_ORDER.md)** for cloud hardening workstreams.
 
@@ -77,7 +64,7 @@ Open **http://127.0.0.1:8000** (default bind). Ensure [AWS credentials](https://
 
 ## Documentation index
 
-Same set as **[docs/README.md](docs/README.md)** (canonical index); quick links below.
+Canonical index: **[docs/README.md](docs/README.md)**; quick links below.
 
 | Doc | Use when you need… |
 |-----|---------------------|
