@@ -89,6 +89,7 @@ def _mask_dict(
             "name",
             "account_name",
             "accountName",
+            "value_key",
         ):
             if isinstance(value, str):
                 result[key] = mask_account_name(value, name_mapping)

@@ -7,6 +7,7 @@ import {
   getCostsDashboardRecommendations,
   getCostsDashboardAnomalies,
   getCostsDashboardSavingsPlans,
+  getCostsDashboardCostCategories,
   getServiceAccountsForService,
   getServicesForAccount,
 } from '../api/client.js';
@@ -19,6 +20,10 @@ const COLUMN_LABELS = {
   endDate: 'End date',
   cost: 'Cost',
   value: 'Value',
+  total_cost: 'Total',
+  coverage_pct: 'Coverage %',
+  pct_of_category_total: '% of category',
+  value_key: 'Value',
 };
 
 function formatColumnHeader(key) {
@@ -29,11 +34,23 @@ function isNumericColumn(key) {
   return (
     key === 'cost' ||
     key === 'value' ||
+    key === 'total_cost' ||
+    key === 'coverage_pct' ||
+    key === 'pct_of_category_total' ||
     key === 'TotalActualSpend' ||
     key === 'TotalExpectedSpend' ||
     key === 'utilization' ||
     key === 'netSavings'
   );
+}
+
+/** Cost Explorer often returns composite keys like "RuleName$prd"; show the segment after the last "$". */
+function formatCostCategoryValueKey(raw) {
+  if (raw == null || raw === '') return '';
+  const s = String(raw);
+  const i = s.lastIndexOf('$');
+  if (i >= 0 && i < s.length - 1) return s.slice(i + 1).trim();
+  return s.trim();
 }
 
 function formatMonthDay(value) {
@@ -56,6 +73,18 @@ function formatCellValue(value, key) {
   if (key === 'netSavings') {
     const n = typeof value === 'object' && value?.Amount != null ? Number(value.Amount) : Number(value);
     return Number.isFinite(n) ? `$${n.toFixed(2)}` : '—';
+  }
+  if (key === 'coverage_pct') {
+    const n = Number(value);
+    return Number.isFinite(n) ? `${n.toFixed(1)}%` : '—';
+  }
+  if (key === 'pct_of_category_total') {
+    const n = Number(value);
+    return Number.isFinite(n) ? `${n.toFixed(2)}%` : '—';
+  }
+  if (key === 'value_key') {
+    const v = formatCostCategoryValueKey(value);
+    return v === '' ? '—' : v;
   }
   if (isNumericColumn(key)) {
     const n = typeof value === 'object' && value?.Amount != null ? Number(value.Amount) : Number(value);
@@ -232,6 +261,8 @@ export function DashboardSection() {
   const [recommendations, setRecommendations] = useState(emptySlice);
   const [anomalies, setAnomalies] = useState(emptySlice);
   const [savingsPlans, setSavingsPlans] = useState(emptySlice);
+  const [costCategories, setCostCategories] = useState(emptySlice);
+  const [costCategoriesExpanded, setCostCategoriesExpanded] = useState(true);
   const [selectedAnomaly, setSelectedAnomaly] = useState(null);
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
   const [showSavingsPlansDetails, setShowSavingsPlansDetails] = useState(false);
@@ -250,6 +281,7 @@ export function DashboardSection() {
       setRecommendations(emptySlice());
       setAnomalies(emptySlice());
       setSavingsPlans(emptySlice());
+      setCostCategories(emptySlice());
       return;
     }
     const forProfile = profile;
@@ -259,11 +291,12 @@ export function DashboardSection() {
     setRecommendations((s) => ({ ...s, loading: true, error: null }));
     setAnomalies((s) => ({ ...s, loading: true, error: null }));
     setSavingsPlans((s) => ({ ...s, loading: true, error: null }));
+    setCostCategories((s) => ({ ...s, loading: true, error: null }));
 
     let completed = 0;
     const maybeDone = () => {
       completed += 1;
-      if (completed === 6) markCostsLoaded(forProfile);
+      if (completed === 7) markCostsLoaded(forProfile);
     };
 
     getCostsDashboardByService(forProfile)
@@ -289,6 +322,10 @@ export function DashboardSection() {
     getCostsDashboardSavingsPlans(forProfile)
       .then((data) => setSavingsPlans({ data, error: null, loading: false }))
       .catch((e) => setSavingsPlans({ data: null, error: e.message, loading: false }))
+      .finally(maybeDone);
+    getCostsDashboardCostCategories(forProfile)
+      .then((data) => setCostCategories({ data, error: null, loading: false }))
+      .catch((e) => setCostCategories({ data: null, error: e.message, loading: false }))
       .finally(maybeDone);
   }, [profile, markCostsLoaded]);
 
@@ -340,6 +377,12 @@ export function DashboardSection() {
     savingsPlansData?.savings_plans_details_2m ??
     savingsPlansData?.savings_plans_details_3m ??
     [];
+  const costCategorySummaryRows =
+    costCategories.data?.categories?.map((c) => ({
+      name: c.name,
+      total_cost: c.total_cost,
+      coverage_pct: c.coverage?.coverage_pct,
+    })) ?? [];
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-finops-text-primary">Costs dashboard</h3>
@@ -463,6 +506,63 @@ export function DashboardSection() {
           )}
         </div>
       </div>
+
+      <div className="border-t border-finops-border pt-3">
+        <button
+          type="button"
+          onClick={() => setCostCategoriesExpanded((e) => !e)}
+          className="flex w-full items-center justify-between gap-2 rounded text-left hover:text-finops-text-primary"
+          aria-expanded={costCategoriesExpanded}
+          aria-label={
+            costCategoriesExpanded ? 'Collapse by cost categories' : 'Expand by cost categories'
+          }
+        >
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-finops-text-secondary">
+            By cost categories
+          </h2>
+          <span
+            className={`shrink-0 text-finops-text-secondary transition-transform ${costCategoriesExpanded ? 'rotate-180' : ''}`}
+            aria-hidden
+          >
+            ▼
+          </span>
+        </button>
+        {costCategoriesExpanded && (
+          <div className="mt-2 space-y-3">
+            {costCategories.data?.truncated && (
+              <p className="text-[11px] text-finops-text-secondary">
+                Showing the first {costCategories.data.categories?.length ?? 0} categories (list
+                truncated).
+              </p>
+            )}
+            <MiniTable
+              title="Summary by cost category rule"
+              rows={costCategories.error ? null : costCategorySummaryRows}
+              columns={['name', 'total_cost', 'coverage_pct']}
+              keyField="name"
+              loading={costCategories.loading}
+              emptyMessage={
+                costCategories.error
+                  ? costCategories.error
+                  : 'No cost category rules or no data for this period'
+              }
+            />
+            {!costCategories.loading &&
+              !costCategories.error &&
+              (costCategories.data?.categories ?? []).map((cat) => (
+                <MiniTable
+                  key={cat.name}
+                  title={cat.name}
+                  rows={cat.rows}
+                  columns={['value_key', 'cost', 'pct_of_category_total']}
+                  keyField="value_key"
+                  emptyMessage="No rows for this category"
+                />
+              ))}
+          </div>
+        )}
+      </div>
+
       {selectedRecommendation && (
         <div className="mt-2 rounded border border-finops-border bg-finops-bg-surface p-3 text-xs shadow-sm space-y-2">
           <div>

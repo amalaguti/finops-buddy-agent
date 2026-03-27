@@ -546,7 +546,7 @@ def get_savings_plans_per_plan_details(
                 )
             token = resp.get("NextToken")
             # Only continue pagination when NextToken is a non-empty string (AWS API).
-            # Avoids infinite loop when response is a mock (e.g. MagicMock) with truthy .get("NextToken").
+            # Avoids infinite loop when mocks return a truthy NextToken.
             if not (isinstance(token, str) and token.strip()):
                 break
         return details
@@ -554,3 +554,179 @@ def get_savings_plans_per_plan_details(
         return []
     except Exception:
         return []
+
+
+# Max cost category rules to query per dashboard request (avoid throttling / long latency).
+_MAX_COST_CATEGORIES_PER_REQUEST = 25
+
+# Dimension value labels treated as uncategorized for coverage (case-insensitive).
+_UNCATEGORIZED_VALUE_KEYS = frozenset(
+    {
+        "",
+        "untagged",
+        "not tagged",
+        "untagged resources",
+        "no cost category",
+        "nocostcategory",
+        "no_cost_category",
+        "no category",
+        "not allocated",
+        "no tag",
+        "notag",
+    }
+)
+
+
+def _is_uncategorized_cost_category_value(value_key: str) -> bool:
+    """Return True if the CE cost-category dimension value counts as uncategorized."""
+    raw = (value_key or "").strip()
+    if not raw:
+        return True
+    norm = raw.lower()
+    compact = norm.replace(" ", "").replace("_", "")
+    if norm in _UNCATEGORIZED_VALUE_KEYS or compact in _UNCATEGORIZED_VALUE_KEYS:
+        return True
+    if "untagged" in norm or "nocostcategory" in compact:
+        return True
+    if norm.startswith("no ") and "cost" in norm and "categor" in norm:
+        return True
+    return False
+
+
+def _client_error_to_cost_explorer(e: ClientError, *, operation: str) -> CostExplorerError:
+    code = e.response.get("Error", {}).get("Code", "")
+    msg = e.response.get("Error", {}).get("Message", str(e))
+    if code == "AccessDeniedException":
+        return CostExplorerError(
+            f"Access denied to Cost Explorer ({operation}). Ensure your credentials have "
+            "the required Cost Explorer permissions and Cost Explorer is enabled."
+        )
+    return CostExplorerError(f"Cost Explorer error ({code}) in {operation}: {msg}")
+
+
+def _list_cost_category_names(ce, start: str, end: str) -> tuple[list[str], bool]:
+    """Return sorted category rule names for the period, capped; truncated if more exist."""
+    names: set[str] = set()
+    token = None
+    while True:
+        # Do not pass MaxResults without SortBy — CE returns ValidationException:
+        # "MaxResult parameter is not supported if you don't want to get sorted result".
+        kwargs: dict = {"TimePeriod": {"Start": start, "End": end}}
+        if token:
+            kwargs["NextPageToken"] = token
+        resp = ce.get_cost_categories(**kwargs)
+        for n in resp.get("CostCategoryNames") or []:
+            if n:
+                names.add(n)
+        token = resp.get("NextPageToken")
+        if not token:
+            break
+    sorted_names = sorted(names)
+    if len(sorted_names) <= _MAX_COST_CATEGORIES_PER_REQUEST:
+        return sorted_names, False
+    return sorted_names[:_MAX_COST_CATEGORIES_PER_REQUEST], True
+
+
+def _fetch_cost_category_usage(ce, start: str, end: str, category_name: str) -> dict[str, Decimal]:
+    """Aggregate UnblendedCost by cost category dimension value."""
+    totals: dict[str, Decimal] = {}
+    token = None
+    while True:
+        kwargs = {
+            "TimePeriod": {"Start": start, "End": end},
+            "Granularity": "MONTHLY",
+            "Metrics": ["UnblendedCost"],
+            "GroupBy": [{"Type": "COST_CATEGORY", "Key": category_name}],
+        }
+        if token:
+            kwargs["NextPageToken"] = token
+        resp = ce.get_cost_and_usage(**kwargs)
+        for result in resp.get("ResultsByTime", []):
+            for group in result.get("Groups", []):
+                keys = group.get("Keys", [])
+                metrics = group.get("Metrics", {})
+                value_key = keys[0] if keys else ""
+                amt = Decimal(metrics.get("UnblendedCost", {}).get("Amount", "0") or "0")
+                totals[value_key] = totals.get(value_key, Decimal("0")) + amt
+        token = resp.get("NextPageToken")
+        if not token:
+            break
+    return totals
+
+
+def _build_category_payload(
+    *,
+    name: str,
+    value_to_cost: dict[str, Decimal],
+) -> dict:
+    """Build one category object with rows, total, and coverage."""
+    total = sum(value_to_cost.values(), Decimal("0"))
+    rows_out: list[dict] = []
+    for value_key, cost in sorted(value_to_cost.items(), key=lambda x: x[1], reverse=True):
+        pct = (float(cost) / float(total) * 100.0) if total > 0 else 0.0
+        rows_out.append(
+            {
+                "value_key": value_key,
+                "cost": float(cost),
+                "pct_of_category_total": round(pct, 4),
+            }
+        )
+    uncategorized = sum(
+        (amt for vk, amt in value_to_cost.items() if _is_uncategorized_cost_category_value(vk)),
+        Decimal("0"),
+    )
+    categorized = total - uncategorized
+    if uncategorized == 0 or total == 0:
+        coverage_pct = 100.0
+    else:
+        coverage_pct = round(float(categorized) / float(total) * 100.0, 4)
+    return {
+        "name": name,
+        "total_cost": float(total),
+        "rows": rows_out,
+        "coverage": {
+            "categorized_cost": float(categorized),
+            "uncategorized_cost": float(uncategorized),
+            "coverage_pct": coverage_pct,
+        },
+    }
+
+
+def get_cost_categories_dashboard(
+    session: boto3.Session,
+    *,
+    start: str | None = None,
+    end: str | None = None,
+) -> dict:
+    """
+    Return MTD cost-categories breakdown for the hosted dashboard.
+
+    Uses GetCostCategories for rule names, then GetCostAndUsage grouped by COST_CATEGORY
+    per name. Raises CostExplorerError on permission/API failures.
+    """
+    if start is None or end is None:
+        start, end = _current_month_range()
+    ce = session.client("ce")
+    try:
+        names, truncated = _list_cost_category_names(ce, start, end)
+    except ClientError as e:
+        raise _client_error_to_cost_explorer(e, operation="GetCostCategories") from e
+
+    categories: list[dict] = []
+    for name in names:
+        try:
+            value_to_cost = _fetch_cost_category_usage(ce, start, end, name)
+        except ClientError as e:
+            raise _client_error_to_cost_explorer(
+                e,
+                operation="GetCostAndUsage (cost categories)",
+            ) from e
+        categories.append(_build_category_payload(name=name, value_to_cost=value_to_cost))
+
+    out: dict = {
+        "period": {"start": start, "end": end},
+        "categories": categories,
+    }
+    if truncated:
+        out["truncated"] = True
+    return out

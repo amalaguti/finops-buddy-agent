@@ -25,6 +25,7 @@ from finops_buddy.config import get_master_profile
 from finops_buddy.context import get_account_context
 from finops_buddy.costs import (
     CostExplorerError,
+    get_cost_categories_dashboard,
     get_costs_by_account_and_service,
     get_costs_by_linked_account,
     get_costs_by_service,
@@ -637,6 +638,27 @@ def get_costs_dashboard_savings_plans(
         "savings_plans_details_2m": savings_plans_details_2m,
         "savings_plans_details_3m": savings_plans_details_3m,
     }
+    if _is_demo_mode(request):
+        name_mapping, id_mapping = _get_demo_mappings()
+        payload = mask_response_data(payload, name_mapping, id_mapping)
+    return payload
+
+
+@app.get("/costs/dashboard/cost-categories")
+def get_costs_dashboard_cost_categories(
+    request: Request,
+    profile: str | None = Depends(resolve_profile),
+) -> dict:
+    """
+    Return month-to-date spend by cost category rules (lazy dashboard slice).
+    When X-Demo-Mode: true, category value labels are masked like other dashboard strings.
+    """
+    session, _ = _resolve_dashboard_session(request, profile)
+    try:
+        payload = get_cost_categories_dashboard(session)
+    except CostExplorerError as e:
+        logger.exception("GET /costs/dashboard/cost-categories Cost Explorer error: %s", e)
+        raise HTTPException(status_code=403, detail=str(e)) from e
     if _is_demo_mode(request):
         name_mapping, id_mapping = _get_demo_mappings()
         payload = mask_response_data(payload, name_mapping, id_mapping)

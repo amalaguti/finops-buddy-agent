@@ -186,6 +186,23 @@ export async function getCostsDashboardSavingsPlans(profile) {
   return data;
 }
 
+const dashboardCostCategoriesCache = new Map();
+export async function getCostsDashboardCostCategories(profile) {
+  const key = dashboardSliceCacheKey(profile, 'cost-categories');
+  const cached = dashboardCostCategoriesCache.get(key);
+  if (cached !== undefined) return cached;
+  const res = await fetch(url('/costs/dashboard/cost-categories', profile), {
+    headers: headers(profile),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || res.statusText);
+  }
+  const data = await res.json();
+  dashboardCostCategoriesCache.set(key, data);
+  return data;
+}
+
 /** In-memory cache for service/account breakdown: key = `${profileKey}:${dateKey}:${service}`. */
 const serviceAccountsCache = new Map();
 
