@@ -1,5 +1,6 @@
 """Tests for conversation-printer: scope, format, filename, content, export."""
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 from finops_buddy.agent.conversation_printer import (
@@ -11,7 +12,9 @@ from finops_buddy.agent.conversation_printer import (
     SCOPE_LAST,
     SCOPE_QA,
     SCOPE_SUMMARY,
+    PdfExportCover,
     build_content_for_scope,
+    build_pdf_html_document,
     export_csv,
     export_pdf,
     export_pdf_fallback,
@@ -21,6 +24,7 @@ from finops_buddy.agent.conversation_printer import (
     export_xlsx_via_mcp,
     generate_output_filename,
     get_output_path,
+    normalize_markdown_pdf_spacing,
     parse_format_input,
     parse_scope_input,
     run_print_flow,
@@ -74,6 +78,50 @@ def test_parse_format_input_unknown_returns_none():
     """Unknown format returns None."""
     assert parse_format_input("doc") is None
     assert parse_format_input("") is None
+
+
+def test_normalize_markdown_pdf_spacing_collapses_excessive_blank_lines():
+    """Triple+ newlines collapse to double to limit vertical gaps in PDF."""
+    raw = "a\n\n\n\n\nb"
+    out = normalize_markdown_pdf_spacing(raw)
+    assert out == "a\n\nb"
+
+
+def test_build_pdf_html_document_contains_style_and_page_rules():
+    """Styled HTML document includes embedded print CSS and @page."""
+    html = build_pdf_html_document("## Hello\n\nParagraph.")
+    assert "<style>" in html
+    assert "@page" in html
+    assert "body" in html
+    assert "<table" not in html  # no table in minimal doc
+
+
+def test_build_pdf_html_document_pipe_table_produces_table_element():
+    """Pipe tables use tables extension and render as HTML tables."""
+    md = "| A | B |\n|---|---|\n| 1 | 2 |"
+    html = build_pdf_html_document(md)
+    assert "<table" in html.lower()
+    assert "<th" in html.lower() or "<td" in html.lower()
+
+
+def test_build_pdf_html_document_cover_includes_title_and_profile():
+    """PDF cover prepends metadata without inventing AWS data."""
+    cover = PdfExportCover(
+        profile_name="profile-prod",
+        exported_at=datetime(2026, 3, 27, 12, 0, 0, tzinfo=timezone.utc),
+    )
+    html = build_pdf_html_document("## Body", cover=cover)
+    assert "FinOps Buddy" in html
+    assert "profile-prod" in html
+    assert "2026-03-27" in html
+    assert "## Body" in html or "Body" in html
+
+
+def test_multi_turn_markdown_normalization_reduces_gaps():
+    """Long blank runs in export do not survive normalization."""
+    md = "## User\n\nhi\n\n\n\n\n## Agent\n\nyo"
+    normalized = normalize_markdown_pdf_spacing(md)
+    assert "\n\n\n\n" not in normalized
 
 
 def test_build_content_for_scope_full():

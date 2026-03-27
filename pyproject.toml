@@ -22,13 +22,14 @@ strands-agents = {version = ">=1.0", extras = ["openai"]}
 openpyxl = ">=3.1"
 markdown = ">=3.4"
 weasyprint = ">=62.0"
-pypdf = ">=6.9.1"
+pypdf = ">=6.9.2"
 xhtml2pdf = ">=0.2.13"
 reportlab = ">=4.0"
 fastapi = ">=0.100"
 uvicorn = {extras = ["standard"], version = ">=0.22"}
 pyjwt = "^2.12.0"
 matplotlib = ">=3.7"
+requests = ">=2.33.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.0"

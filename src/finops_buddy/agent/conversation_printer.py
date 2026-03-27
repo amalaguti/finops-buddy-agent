@@ -7,7 +7,8 @@ import os
 import re
 import sys
 from contextlib import contextmanager
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Scope identifiers for content selection
@@ -24,6 +25,40 @@ FORMAT_XLSX = "xlsx"
 
 DEFAULT_TITLE = "conversation"
 MAX_TITLE_LENGTH = 50
+
+# Print CSS aligned with markdown-to-pdf-guide.md (A4, FinOps/AWS-adjacent palette).
+PRINT_PDF_CSS = """
+  @page { size: A4; margin: 2cm; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11pt;
+         color: #1a1a1a; line-height: 1.45; margin: 0; }
+  h1 { color: #232f3e; border-bottom: 3px solid #ff9900; padding-bottom: 8px; font-size: 22px;
+       margin: 0 0 12px 0; }
+  h2 { color: #232f3e; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin: 18px 0 10px 0;
+       font-size: 16px; }
+  h3 { color: #545b64; font-size: 13px; margin: 14px 0 8px 0; }
+  p { margin: 0 0 8px 0; }
+  ul, ol { margin: 6px 0 10px 0; padding-left: 22px; }
+  li { margin: 2px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 10pt; }
+  th { background-color: #232f3e; color: #ffffff; padding: 8px 10px; text-align: left; }
+  td { padding: 6px 10px; border-bottom: 1px solid #ddd; }
+  tr:nth-child(even) { background-color: #f7f7f7; }
+  strong { color: #d13212; }
+  blockquote { background: #fff3cd; border-left: 4px solid #ff9900; padding: 10px 15px;
+               margin: 12px 0; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 16px 0; }
+  a { color: #0073bb; }
+  code { background: #f1f1f1; padding: 1px 4px; border-radius: 3px; font-size: 10pt; }
+  pre { background: #f5f5f5; padding: 10px; border-radius: 4px; font-size: 9pt; overflow: auto; }
+"""
+
+
+@dataclass
+class PdfExportCover:
+    """Optional cover block for PDF exports (metadata only — no invented AWS data)."""
+
+    profile_name: str | None = None
+    exported_at: datetime | None = None
 
 
 def _slugify(text: str) -> str:
@@ -105,6 +140,63 @@ def get_output_path(filename: str, output_dir: Path | None = None) -> Path:
     return base / filename
 
 
+def normalize_markdown_pdf_spacing(text: str) -> str:
+    """Collapse excessive blank lines so PDFs do not get runaway vertical gaps."""
+    text = text.replace("\r\n", "\n")
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def _apply_pdf_cover(markdown_content: str, cover: PdfExportCover | None) -> str:
+    if cover is None:
+        return markdown_content
+    ts = cover.exported_at or datetime.now(timezone.utc)
+    stamp = ts.strftime("%Y-%m-%d %H:%M:%S UTC")
+    lines = [
+        "# FinOps Buddy — conversation export",
+        "",
+        f"**Exported:** {stamp}",
+    ]
+    if cover.profile_name:
+        lines.append(f"**Profile:** {cover.profile_name}")
+    lines.extend(["", "---", "", markdown_content])
+    return "\n".join(lines)
+
+
+def _markdown_for_pdf(markdown_content: str, cover: PdfExportCover | None) -> str:
+    return normalize_markdown_pdf_spacing(_apply_pdf_cover(markdown_content, cover))
+
+
+def _markdown_to_pdf_body_html(markdown: str) -> str:
+    import markdown as md_lib
+
+    return md_lib.markdown(
+        markdown,
+        extensions=["tables", "fenced_code"],
+    )
+
+
+def _wrap_print_html_document(body_html: str) -> str:
+    return (
+        '<!DOCTYPE html>\n<html><head><meta charset="utf-8"/>'
+        f"<style>{PRINT_PDF_CSS}</style></head><body>{body_html}</body></html>"
+    )
+
+
+def build_pdf_html_document(
+    markdown_content: str,
+    *,
+    cover: PdfExportCover | None = None,
+) -> str:
+    """
+    Build a full HTML document string for PDF rendering (WeasyPrint / xhtml2pdf).
+    Used by /print and tests; applies cover, spacing normalization, and print CSS.
+    """
+    md = _markdown_for_pdf(markdown_content, cover)
+    body = _markdown_to_pdf_body_html(md)
+    return _wrap_print_html_document(body)
+
+
 def export_txt(content: str, path: Path) -> None:
     """Write content as plain text to path."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -123,6 +215,8 @@ def export_csv(rows: list[tuple[int, str, str]], path: Path) -> None:
 def export_pdf_via_mcp(markdown_content: str, path: Path) -> tuple[bool, str]:
     """
     Call PDF MCP (md-to-pdf-mcp) to convert markdown to PDF at path.
+    Input is Markdown only (same normalized/covered string as the in-process pipeline);
+    MCP styling may differ from FinOps Buddy's styled HTML path.
     Returns (success, message). On success message is the path as string.
     """
     from finops_buddy.settings import (
@@ -181,45 +275,34 @@ def export_pdf_via_mcp(markdown_content: str, path: Path) -> tuple[bool, str]:
         return False, f"PDF export failed: {e}"
 
 
-def _pdf_with_weasyprint(markdown_content: str, path: Path) -> tuple[bool, str]:
-    """Render markdown to PDF with weasyprint (needs GTK/Cairo; often fails on Windows)."""
-    import markdown as md_lib
+def _pdf_with_weasyprint(
+    markdown_content: str,
+    path: Path,
+    *,
+    cover: PdfExportCover | None = None,
+) -> tuple[bool, str]:
+    """Render Markdown to PDF with WeasyPrint (needs GTK/Cairo; often fails on Windows)."""
     from weasyprint import HTML
 
-    html = md_lib.markdown(
-        markdown_content,
-        extensions=["extra", "nl2br"],
-    )
+    html_document = build_pdf_html_document(markdown_content, cover=cover)
     path.parent.mkdir(parents=True, exist_ok=True)
-    HTML(string=f"<body>{html}</body>").write_pdf(path)
+    HTML(string=html_document).write_pdf(path)
     return True, str(path)
 
 
-def _pdf_with_xhtml2pdf(markdown_content: str, path: Path) -> tuple[bool, str]:
-    """Render markdown to PDF with xhtml2pdf (pure Python, works on Windows)."""
-    import markdown as md_lib
+def _pdf_with_xhtml2pdf(
+    markdown_content: str,
+    path: Path,
+    *,
+    cover: PdfExportCover | None = None,
+) -> tuple[bool, str]:
+    """Render Markdown to PDF with xhtml2pdf (pure Python; same HTML+CSS as WeasyPrint)."""
     from xhtml2pdf import pisa
 
-    html = md_lib.markdown(
-        markdown_content,
-        extensions=["extra", "nl2br"],
-    )
+    html_document = build_pdf_html_document(markdown_content, cover=cover)
     path.parent.mkdir(parents=True, exist_ok=True)
-    doc = f"""
-    <!DOCTYPE html>
-    <html><head><meta charset="utf-8"/>
-    <style>
-      body {{ font-family: Helvetica, sans-serif; font-size: 10pt; margin: 1in; }}
-      h1 {{ font-size: 16pt; margin-top: 0; }}
-      h2 {{ font-size: 13pt; border-bottom: 1px solid #ccc; margin-top: 1em; }}
-      h3 {{ font-size: 11pt; margin-top: 0.8em; }}
-      table {{ border-collapse: collapse; width: 100%; margin: 0.5em 0; }}
-      th, td {{ border: 1px solid #ddd; padding: 4px 8px; text-align: left; }}
-      th {{ background: #f5f5f5; }}
-    </style></head><body>{html}</body></html>
-    """
     with path.open("wb") as dest:
-        status = pisa.CreatePDF(doc, dest, encoding="utf-8")
+        status = pisa.CreatePDF(html_document, dest, encoding="utf-8")
     if status.err:
         return False, f"xhtml2pdf failed: {status.err}"
     return True, str(path)
@@ -230,24 +313,37 @@ def _escape_reportlab(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _pdf_with_reportlab(markdown_content: str, path: Path) -> tuple[bool, str]:
-    """Render markdown to PDF with reportlab (pure Python, no GTK)."""
+def _pdf_with_reportlab(
+    markdown_content: str,
+    path: Path,
+    *,
+    cover: PdfExportCover | None = None,
+) -> tuple[bool, str]:
+    """
+    Render Markdown to PDF with ReportLab (simplified fallback — not full Markdown/CSS parity).
+    """
+    from reportlab.lib import colors
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib.units import inch
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+    md = _markdown_for_pdf(markdown_content, cover)
     path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(
         str(path),
-        rightMargin=inch,
-        leftMargin=inch,
-        topMargin=inch,
-        bottomMargin=inch,
+        rightMargin=inch * 0.75,
+        leftMargin=inch * 0.75,
+        topMargin=inch * 0.75,
+        bottomMargin=inch * 0.75,
     )
     styles = getSampleStyleSheet()
     story = []
+    header_bg = colors.HexColor("#232f3e")
+    header_fg = colors.HexColor("#ffffff")
+    grid_color = colors.HexColor("#dddddd")
+    zebra = colors.HexColor("#f7f7f7")
     table_pattern = re.compile(r"^\s*\|.+\|\s*$")
-    for block in re.split(r"\n\s*\n", markdown_content):
+    for block in re.split(r"\n\s*\n", md):
         block = block.strip()
         if not block:
             continue
@@ -264,18 +360,22 @@ def _pdf_with_reportlab(markdown_content: str, path: Path) -> tuple[bool, str]:
                 rows.append(cells)
             if rows:
                 t = Table(rows)
-                t.setStyle(
-                    TableStyle(
-                        [
-                            ("BACKGROUND", (0, 0), (-1, 0), (0.9, 0.9, 0.9)),
-                            ("GRID", (0, 0), (-1, -1), 0.5, (0.5, 0.5, 0.5)),
-                            ("FONTSIZE", (0, 0), (-1, -1), 9),
-                            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                        ]
+                nrows = len(rows)
+                style_cmds = [
+                    ("BACKGROUND", (0, 0), (-1, 0), header_bg),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), header_fg),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 0.5, grid_color),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ]
+                if nrows > 1:
+                    style_cmds.append(
+                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, zebra]),
                     )
-                )
+                t.setStyle(TableStyle(style_cmds))
                 story.append(t)
-                story.append(Spacer(1, 12))
+                story.append(Spacer(1, 10))
             continue
         for line in lines:
             line = line.strip()
@@ -308,7 +408,12 @@ def _suppress_stdout_stderr():
         sys.stdout, sys.stderr = old_out, old_err
 
 
-def export_pdf_fallback(markdown_content: str, path: Path) -> tuple[bool, str]:
+def export_pdf_fallback(
+    markdown_content: str,
+    path: Path,
+    *,
+    cover: PdfExportCover | None = None,
+) -> tuple[bool, str]:
     """
     Convert markdown to PDF in-process: try weasyprint, then xhtml2pdf, then reportlab.
     WeasyPrint needs GTK/Cairo (often fails on Windows); xhtml2pdf and reportlab are pure Python.
@@ -322,7 +427,7 @@ def export_pdf_fallback(markdown_content: str, path: Path) -> tuple[bool, str]:
     ]:
         try:
             with _suppress_stdout_stderr():
-                ok, msg = fn(markdown_content, path)
+                ok, msg = fn(markdown_content, path, cover=cover)
             if ok:
                 return True, msg
             if name == "weasyprint":
@@ -337,20 +442,26 @@ def export_pdf_fallback(markdown_content: str, path: Path) -> tuple[bool, str]:
     return False, "PDF fallback failed: need weasyprint, xhtml2pdf, or reportlab."
 
 
-def export_pdf(markdown_content: str, path: Path) -> tuple[bool, str]:
+def export_pdf(
+    markdown_content: str,
+    path: Path,
+    *,
+    cover: PdfExportCover | None = None,
+) -> tuple[bool, str]:
     """
-    Export markdown to PDF: try in-process fallback first (weasyprint/xhtml2pdf/reportlab),
-    then PDF MCP only if fallback fails. Using in-process first avoids the PDF MCP server
-    writing WeasyPrint errors to its stdout and breaking the JSON-RPC channel.
+    Export markdown to PDF: try styled in-process pipeline first (weasyprint/xhtml2pdf/reportlab),
+    then PDF MCP only if fallback fails. MCP receives the same Markdown as the styled pipeline
+    (after cover + spacing normalization), not the HTML document.
     Returns (success, message).
     """
-    ok, msg = export_pdf_fallback(markdown_content, path)
+    ok, msg = export_pdf_fallback(markdown_content, path, cover=cover)
     if ok:
         return True, msg
     from finops_buddy.settings import get_pdf_mcp_enabled
 
     if get_pdf_mcp_enabled():
-        ok, msg = export_pdf_via_mcp(markdown_content, path)
+        md_for_mcp = _markdown_for_pdf(markdown_content, cover)
+        ok, msg = export_pdf_via_mcp(md_for_mcp, path)
         if ok:
             return True, msg
     return False, msg
@@ -505,6 +616,7 @@ def run_print_flow(
     output_dir: Path | None = None,
     input_func: object = None,
     print_func: object = None,
+    profile_name: str | None = None,
 ) -> None:
     """
     Run the /print save flow: prompt for scope and format, build content, export to file.
@@ -512,6 +624,7 @@ def run_print_flow(
     agent: Used only when scope is "summary" (one call to get summary text).
     input_func: Callable[[], str] for reading user input (default: builtin input).
     print_func: Callable[[str], None] for output (default: builtin print).
+    profile_name: Optional AWS profile (from CLI); included on PDF cover when exporting PDF.
     """
     inp = input_func if callable(input_func) else input
     out = print_func if callable(print_func) else print
@@ -563,7 +676,8 @@ def run_print_flow(
         out(f"Saved to {path}")
         return
     if fmt == FORMAT_PDF:
-        ok, msg = export_pdf(markdown, path)
+        cover = PdfExportCover(profile_name=profile_name.strip() if profile_name else None)
+        ok, msg = export_pdf(markdown, path, cover=cover)
         if ok:
             out(f"Saved to {msg}")
         else:

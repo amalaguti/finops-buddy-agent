@@ -273,7 +273,7 @@ def run_chat_loop(
             print(f"\n{_format_credentials_output(session, profile_name)}\n")
             continue
         if normalized == "/print":
-            run_print_flow(conversation, agent)
+            run_print_flow(conversation, agent, profile_name=profile_name)
             print()
             continue
         if get_read_only_guardrail_input_enabled() and is_mutating_intent(user_input):

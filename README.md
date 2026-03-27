@@ -71,7 +71,7 @@ Canonical index: **[docs/README.md](docs/README.md)**; quick links below.
 | [docs/README.md](docs/README.md) | Index of all docs |
 | [docs/FEATURES.md](docs/FEATURES.md) | UI screenshots, dashboard & chat, demo mode |
 | [docs/MCP.md](docs/MCP.md) | MCP server overview |
-| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | `settings.yaml`, every `FINOPS_*` variable, chat/MCP behavior |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | `settings.yaml`, every `FINOPS_*` variable, chat/MCP behavior, **`/print`** export (PDF pipeline & fallbacks) |
 | [docs/RUNNING.md](docs/RUNNING.md) | API & UI, Vite dev, full rebuild, Docker, Windows settings |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | OpenSpec workflow, lint/test, CLI & `/commands` in chat |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture (CLI, API, core, agent, MCP) |

@@ -26,6 +26,7 @@ FinOps Buddy uses **spec-driven development**: behavior is described in structur
   poetry run pip-audit
   ```
   Run before releases or when dependencies change. If a vulnerability has no fix, use `--ignore-vuln VULN-ID` and document it.
+  **pygments** may report **CVE-2026-4539** while PyPI still lists 2.19.2 as latest; until a fixed release exists, use `poetry run pip-audit --ignore-vuln CVE-2026-4539` and track [Pygments releases](https://pypi.org/project/pygments/).
 
 ## CLI reference (after `poetry install`)
 
