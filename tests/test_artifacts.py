@@ -1,6 +1,7 @@
 """Pytest tests for artifact parsing (data URI images from assistant reply)."""
 
 from finops_buddy.agent.artifacts import (
+    artifact_export_from_file,
     parse_reply_data_uri_images,
     strip_non_data_uri_images,
 )
@@ -55,3 +56,26 @@ def test_strip_non_data_uri_images_empty_or_none():
     assert strip_non_data_uri_images("") == ""
     assert strip_non_data_uri_images("No images here.") == "No images here."
     assert strip_non_data_uri_images(None) is None
+
+
+def test_artifact_export_from_file_pdf_data_uri(tmp_path):
+    """Exported PDF on disk becomes a data-URI artifact for the web UI basket."""
+    p = tmp_path / "report.pdf"
+    p.write_bytes(b"%PDF-1.4\nminimal")
+    art = artifact_export_from_file(p)
+    assert art is not None
+    assert art["type"] == "pdf"
+    assert art["title"] == "report.pdf"
+    assert art["content"].startswith("data:application/pdf;base64,")
+
+
+def test_artifact_export_from_file_xlsx_data_uri(tmp_path):
+    """Exported xlsx on disk becomes a data-URI artifact."""
+    p = tmp_path / "data.xlsx"
+    p.write_bytes(b"PK\x03\x04fake")
+    art = artifact_export_from_file(p)
+    assert art is not None
+    assert art["type"] == "excel"
+    assert art["title"] == "data.xlsx"
+    assert "spreadsheetml" in art["content"]
+    assert art["content"].startswith("data:")

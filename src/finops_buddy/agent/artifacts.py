@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import re
+from pathlib import Path
 
 # Match markdown image with data URI: ![alt](data:image/png;base64,...)
 _DATA_URI_IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\((data:image/[^;]+;base64,[A-Za-z0-9+/=]+)\)")
@@ -44,3 +46,47 @@ def strip_non_data_uri_images(reply: str) -> str:
         return ""
 
     return _ANY_IMAGE_PATTERN.sub(replace, reply)
+
+
+# Web UI /chat SSE: cap embedded file payloads (base64 in JSON).
+_MAX_EXPORT_ARTIFACT_BYTES = 10 * 1024 * 1024
+
+
+def artifact_export_from_file(
+    path: Path | str,
+    *,
+    max_bytes: int = _MAX_EXPORT_ARTIFACT_BYTES,
+) -> dict[str, str] | None:
+    """
+    Build an artifact dict {type, title, content} with a data: URI for browser download.
+
+    Used when export_to_pdf / export_to_excel write a file on the server; the hook reads
+    the file and attaches it to the Artifacts basket. Returns None if missing, too large,
+    or unsupported extension.
+    """
+    p = Path(path)
+    if not p.is_file():
+        return None
+    suffix = p.suffix.lower()
+    if suffix == ".pdf":
+        mime = "application/pdf"
+        kind = "pdf"
+    elif suffix == ".xlsx":
+        mime = (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        kind = "excel"
+    else:
+        return None
+    try:
+        raw = p.read_bytes()
+    except OSError:
+        return None
+    if len(raw) > max_bytes:
+        return None
+    b64 = base64.standard_b64encode(raw).decode("ascii")
+    return {
+        "type": kind,
+        "title": p.name,
+        "content": f"data:{mime};base64,{b64}",
+    }

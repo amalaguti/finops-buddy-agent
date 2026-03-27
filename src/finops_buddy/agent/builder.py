@@ -152,6 +152,40 @@ class _ChartArtifactCollectorHook:
         self._collector.extend(parsed)
 
 
+class _ExportFileArtifactCollectorHook:
+    """Collect export_to_pdf / export_to_excel output files for the web UI Artifacts basket."""
+
+    def __init__(self, collector: list) -> None:
+        self._collector = collector
+
+    def register_hooks(self, registry: object, **kwargs: object) -> None:
+        from strands.hooks import AfterToolCallEvent
+
+        registry.add_callback(AfterToolCallEvent, self._on_after_tool)
+
+    def _on_after_tool(self, event: object) -> None:
+        from pathlib import Path
+
+        from finops_buddy.agent.artifacts import artifact_export_from_file
+
+        tool_use = getattr(event, "tool_use", None)
+        result = getattr(event, "result", None)
+        if not isinstance(tool_use, dict):
+            return
+        name = tool_use.get("name")
+        if name not in ("export_to_pdf", "export_to_excel"):
+            return
+        result_str = _tool_result_as_string(result)
+        if not isinstance(result_str, str) or not result_str.strip():
+            return
+        rs = result_str.strip().lower()
+        if rs.startswith("pdf export failed") or rs.startswith("excel export failed"):
+            return
+        art = artifact_export_from_file(Path(result_str.strip()))
+        if art is not None:
+            self._collector.append(art)
+
+
 class _VerboseToolDebugHook:
     """Hook that prints tool name, input, and result when verbose_tool_debug is enabled."""
 
@@ -269,12 +303,15 @@ def build_agent(
     tools: list | None = None,
     progress_callback=None,
     chart_artifact_collector: list | None = None,
+    file_export_artifact_collector: list | None = None,
 ):
     """Build agent with cost tools and optional Knowledge + Billing MCP.
     Uses OpenAI if FINOPS_OPENAI_API_KEY set, else Bedrock.
     If tools is provided, use it; else create_cost_tools(session) + MCP when enabled.
     When Billing MCP is enabled, in-process cost tools are omitted so the MCP server
-    handles cost queries (only get_current_date is kept)."""
+    handles cost queries (only get_current_date is kept).
+    file_export_artifact_collector: optional list populated when export_to_pdf/export_to_excel
+    write files (for web UI artifact SSE events)."""
     from strands import Agent
 
     if tools is None:
@@ -304,6 +341,8 @@ def build_agent(
         hooks_list.append(_ProgressCallbackHook(progress_callback))
     if chart_artifact_collector is not None:
         hooks_list.append(_ChartArtifactCollectorHook(chart_artifact_collector))
+    if file_export_artifact_collector is not None:
+        hooks_list.append(_ExportFileArtifactCollectorHook(file_export_artifact_collector))
     if get_verbose_tool_debug():
         hooks_list.append(_VerboseToolDebugHook(enabled=True))
     kwargs = {

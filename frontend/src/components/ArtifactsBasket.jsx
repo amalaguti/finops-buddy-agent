@@ -1,33 +1,68 @@
 import { useState } from 'react';
 
 /**
- * Collapsible artifacts basket: shows generated charts from the conversation.
- * Session-only; no persistence. Download single or all as PNG.
+ * Collapsible artifacts basket: charts, exported PDFs, and Excel files from the conversation.
+ * Session-only; no persistence.
  */
+function downloadExtensionForDataUri(content) {
+  if (!content || typeof content !== 'string') return 'bin';
+  if (content.startsWith('data:image/')) {
+    return content.includes('image/png') ? 'png' : 'png';
+  }
+  if (content.startsWith('data:application/pdf')) return 'pdf';
+  if (
+    content.includes('spreadsheetml') ||
+    content.startsWith('data:application/vnd.openxmlformats-officedocument')
+  ) {
+    return 'xlsx';
+  }
+  return 'bin';
+}
+
 export function ArtifactsBasket({ artifacts = [] }) {
   const [open, setOpen] = useState(false);
 
   function downloadOne(artifact, index) {
-    if (!artifact?.content?.startsWith('data:image/')) return;
-    const ext = artifact.content.includes('image/png') ? 'png' : 'png';
-    const base = (artifact.title || 'chart').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'chart';
+    const c = artifact?.content;
+    if (!c || typeof c !== 'string') return;
+    if (
+      !c.startsWith('data:image/') &&
+      !c.startsWith('data:application/pdf') &&
+      !c.includes('spreadsheetml')
+    ) {
+      return;
+    }
+    const ext = downloadExtensionForDataUri(c);
+    const base = (artifact.title || 'artifact')
+      .replace(/[^a-zA-Z0-9_.-]/g, '_')
+      .slice(0, 40) || 'artifact';
     const name = `${base}_${index + 1}.${ext}`;
     const a = document.createElement('a');
-    a.href = artifact.content;
+    a.href = c;
     a.download = name;
     a.click();
   }
 
   function downloadAll() {
     artifacts.forEach((artifact, index) => {
-      if (artifact?.content?.startsWith('data:image/')) {
-        const base = (artifact.title || 'chart').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'chart';
-        const name = `${base}_${index + 1}.png`;
-        const a = document.createElement('a');
-        a.href = artifact.content;
-        a.download = name;
-        a.click();
+      const c = artifact?.content;
+      if (!c || typeof c !== 'string') return;
+      if (
+        !c.startsWith('data:image/') &&
+        !c.startsWith('data:application/pdf') &&
+        !c.includes('spreadsheetml')
+      ) {
+        return;
       }
+      const ext = downloadExtensionForDataUri(c);
+      const base = (artifact.title || 'artifact')
+        .replace(/[^a-zA-Z0-9_.-]/g, '_')
+        .slice(0, 40) || 'artifact';
+      const name = `${base}_${index + 1}.${ext}`;
+      const a = document.createElement('a');
+      a.href = c;
+      a.download = name;
+      a.click();
     });
   }
 
@@ -78,6 +113,20 @@ export function ArtifactsBasket({ artifacts = [] }) {
                           alt={artifact.title || 'Chart'}
                           className="h-14 w-20 shrink-0 rounded object-cover"
                         />
+                      ) : artifact.content?.startsWith('data:application/pdf') ? (
+                        <div
+                          className="h-14 w-20 shrink-0 rounded bg-finops-btn-secondary flex items-center justify-center text-xs font-medium text-finops-text-primary"
+                          title="PDF"
+                        >
+                          PDF
+                        </div>
+                      ) : artifact.content?.includes('spreadsheetml') ? (
+                        <div
+                          className="h-14 w-20 shrink-0 rounded bg-finops-btn-secondary flex items-center justify-center text-xs font-medium text-finops-text-primary"
+                          title="Excel"
+                        >
+                          XLSX
+                        </div>
                       ) : (
                         <div className="h-14 w-20 shrink-0 rounded bg-finops-btn-secondary flex items-center justify-center text-xs text-finops-text-secondary">
                           —
@@ -85,7 +134,7 @@ export function ArtifactsBasket({ artifacts = [] }) {
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-finops-text-primary">
-                          {artifact.title || 'Chart'}
+                          {artifact.title || 'Artifact'}
                         </p>
                         <button
                           type="button"

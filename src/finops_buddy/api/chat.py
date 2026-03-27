@@ -225,12 +225,14 @@ def build_agent_and_tools(
     profile_name: str | None,
     progress_callback=None,
     chart_artifact_collector: list | None = None,
+    file_export_artifact_collector: list | None = None,
 ) -> tuple:
     """
     Build session, tools (MCP + cost + export), and agent for the given profile.
 
     progress_callback: optional callable(event, tool_name) for tool_start/tool_end (API streaming).
     chart_artifact_collector: optional list to collect create_chart tool results as artifacts.
+    file_export_artifact_collector: optional list for export_to_pdf/export_to_excel file artifacts.
     Returns (agent, tools). Results are cached per agent profile to avoid rebuilds.
     """
     cache_key = profile_name or "__default__"
@@ -252,6 +254,7 @@ def build_agent_and_tools(
             tools=cached_tools,
             progress_callback=progress_callback,
             chart_artifact_collector=chart_artifact_collector,
+            file_export_artifact_collector=file_export_artifact_collector,
         )
         return (ephemeral_agent, cached_tools)
 
@@ -324,6 +327,7 @@ def build_agent_and_tools(
             tools=tools,
             progress_callback=progress_callback,
             chart_artifact_collector=chart_artifact_collector,
+            file_export_artifact_collector=file_export_artifact_collector,
         )
         return (ephemeral_agent, tools)
     return pair
@@ -343,16 +347,19 @@ def run_chat_turn(
     history. The new message is appended as a user turn.
     progress_callback: optional callable(event, tool_name) for tool_start/tool_end (API streaming).
     demo_mode: when True, append demo masking instructions to system prompt.
-    artifacts: list of {type, title, content} parsed from embedded data URI images in the reply.
+    artifacts: list of {type, title, content} parsed from embedded data URI images in the reply,
+    plus chart tool results and export_to_pdf/export_to_excel files for the web UI basket.
     """
     agent_profile = resolve_agent_profile(profile_name)
     chart_artifacts: list = []
+    file_export_artifacts: list = []
     if callable(progress_callback):
         progress_callback("phase", "Preparing agent session")
     agent, tools = build_agent_and_tools(
         agent_profile,
         progress_callback=progress_callback,
         chart_artifact_collector=chart_artifacts,
+        file_export_artifact_collector=file_export_artifacts,
     )
     try:
         if callable(progress_callback):
@@ -419,7 +426,9 @@ def run_chat_turn(
                     }
         except Exception:
             pass
-        artifacts = parse_reply_data_uri_images(text) + chart_artifacts
+        artifacts = (
+            parse_reply_data_uri_images(text) + chart_artifacts + file_export_artifacts
+        )
         if chart_artifacts:
             # Remove model placeholders like ![Chart](url) so UI doesn't show "[image not shown]"
             text = strip_non_data_uri_images(text)
