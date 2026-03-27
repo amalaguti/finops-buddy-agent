@@ -196,7 +196,10 @@ def test_get_savings_plans_purchase_recommendations_respects_lookback_parameter(
                     session, lookback_period_in_days="SIXTY_DAYS"
                 )
     assert out["lookback_period_in_days"] == "SIXTY_DAYS"
-    assert ce.get_savings_plans_purchase_recommendation.call_args[1]["LookbackPeriodInDays"] == "SIXTY_DAYS"
+    assert (
+        ce.get_savings_plans_purchase_recommendation.call_args[1]["LookbackPeriodInDays"]
+        == "SIXTY_DAYS"
+    )
 
 
 def test_get_savings_plans_purchase_recommendations_rejects_invalid_lookback():

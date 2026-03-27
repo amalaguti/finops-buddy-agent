@@ -375,6 +375,8 @@ export function DashboardSection() {
   const [savingsPlans, setSavingsPlans] = useState(emptySlice);
   const [costCategories, setCostCategories] = useState(emptySlice);
   const [costCategoriesExpanded, setCostCategoriesExpanded] = useState(true);
+  /** Which cost category rule names have their detail panel expanded (default: none = all collapsed). */
+  const [costCategoryRuleExpanded, setCostCategoryRuleExpanded] = useState({});
   const [savingsPlansPurchase, setSavingsPlansPurchase] = useState(emptySlice);
   const [savingsPlansPurchaseExpanded, setSavingsPlansPurchaseExpanded] = useState(true);
   const [purchaseLookbackUi, setPurchaseLookbackUi] = useState('30');
@@ -457,6 +459,10 @@ export function DashboardSection() {
       .catch((e) => setSavingsPlansPurchase({ data: null, error: e.message, loading: false }))
       .finally(maybeDone);
   }, [profile, purchaseLookbackUi, markCostsLoaded]);
+
+  useEffect(() => {
+    setCostCategoryRuleExpanded({});
+  }, [costCategories.data]);
 
   const savingsPlansPurchaseRows = useMemo(() => {
     const raw = savingsPlansPurchase.data?.recommendations ?? [];
@@ -735,16 +741,53 @@ export function DashboardSection() {
             />
             {!costCategories.loading &&
               !costCategories.error &&
-              (costCategories.data?.categories ?? []).map((cat) => (
-                <MiniTable
-                  key={cat.name}
-                  title={cat.name}
-                  rows={cat.rows}
-                  columns={['value_key', 'cost', 'pct_of_category_total']}
-                  keyField="value_key"
-                  emptyMessage="No rows for this category"
-                />
-              ))}
+              (costCategories.data?.categories ?? []).map((cat) => {
+                const ruleExpanded = Boolean(costCategoryRuleExpanded[cat.name]);
+                return (
+                  <div
+                    key={cat.name}
+                    className="overflow-hidden rounded border border-finops-border bg-finops-bg-page/30"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCostCategoryRuleExpanded((prev) => ({
+                          ...prev,
+                          [cat.name]: !prev[cat.name],
+                        }))
+                      }
+                      className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-xs hover:bg-finops-bg-page/50"
+                      aria-expanded={ruleExpanded}
+                      aria-label={
+                        ruleExpanded
+                          ? `Collapse details for ${cat.name}`
+                          : `Expand details for ${cat.name}`
+                      }
+                    >
+                      <span className="min-w-0 truncate font-medium text-finops-text-primary">
+                        {cat.name}
+                      </span>
+                      <span
+                        className={`shrink-0 text-finops-text-secondary transition-transform ${ruleExpanded ? 'rotate-180' : ''}`}
+                        aria-hidden
+                      >
+                        ▼
+                      </span>
+                    </button>
+                    {ruleExpanded && (
+                      <div className="border-t border-finops-border px-1 pb-2 pt-1">
+                        <MiniTable
+                          title="Details"
+                          rows={cat.rows}
+                          columns={['value_key', 'cost', 'pct_of_category_total']}
+                          keyField="value_key"
+                          emptyMessage="No rows for this category"
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>

@@ -28,13 +28,11 @@ def test_build_agent_and_tools_emits_mcp_loading_progress_and_logs(caplog, monke
     )
     monkeypatch.setattr(chat_mod, "create_chart_tools", lambda: [])
     monkeypatch.setattr(chat_mod, "create_export_tools", lambda: [])
-    monkeypatch.setattr(
-        chat_mod,
-        "build_agent",
-        lambda session, profile_name, tools, progress_callback=None, chart_artifact_collector=None, file_export_artifact_collector=None: (
-            object()
-        ),
-    )
+
+    def fake_build_agent(*_args, **_kwargs):
+        return object()
+
+    monkeypatch.setattr(chat_mod, "build_agent", fake_build_agent)
 
     events: list[tuple[str, str]] = []
 
