@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useProfile } from '../context/ProfileContext.jsx';
+import { CostsDashboardCarousel, usePrefersReducedMotion } from './CostsDashboardCarousel.jsx';
 import {
   getCostsDashboardByService,
   getCostsDashboardByAccount,
@@ -377,6 +378,30 @@ function summarizeRecommendationSavings(rec) {
 
 const emptySlice = () => ({ data: null, error: null, loading: false });
 
+const LS_CAROUSEL_MODE = 'finops-costs-carousel-mode';
+const LS_CAROUSEL_INTERVAL = 'finops-costs-carousel-interval';
+
+function readCarouselModeFromStorage() {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem(LS_CAROUSEL_MODE) === '1';
+  } catch {
+    return false;
+  }
+}
+
+const CAROUSEL_ALLOWED_INTERVALS = new Set([5, 10, 15, 30]);
+
+function readCarouselIntervalFromStorage() {
+  try {
+    if (typeof localStorage === 'undefined') return 15;
+    const raw = localStorage.getItem(LS_CAROUSEL_INTERVAL);
+    const n = Number(raw);
+    return CAROUSEL_ALLOWED_INTERVALS.has(n) ? n : 15;
+  } catch {
+    return 15;
+  }
+}
+
 export function DashboardSection() {
   const { profile, markCostsLoaded } = useProfile();
   const [savingsPlansMonths, setSavingsPlansMonths] = useState(1);
@@ -409,6 +434,55 @@ export function DashboardSection() {
   const [accountServices, setAccountServices] = useState(null);
   const [accountServicesError, setAccountServicesError] = useState(null);
   const [dashboardPeriod, setDashboardPeriod] = useState('mtd');
+  const [carouselMode, setCarouselMode] = useState(readCarouselModeFromStorage);
+  const [carouselIntervalSec, setCarouselIntervalSec] = useState(readCarouselIntervalFromStorage);
+  const [carouselPaused, setCarouselPaused] = useState(false);
+  const [carouselSlideIndex, setCarouselSlideIndex] = useState(0);
+  const prefersReducedMotion = usePrefersReducedMotion();
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_CAROUSEL_MODE, carouselMode ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [carouselMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_CAROUSEL_INTERVAL, String(carouselIntervalSec));
+    } catch {
+      /* ignore */
+    }
+  }, [carouselIntervalSec]);
+
+  useEffect(() => {
+    if (!carouselMode) return undefined;
+    if (prefersReducedMotion || carouselPaused) return undefined;
+    const categoriesLen = costCategories.data?.categories?.length ?? 0;
+    const slideCount = 8 + categoriesLen;
+    if (slideCount <= 0) return undefined;
+    const id = window.setInterval(() => {
+      setCarouselSlideIndex((i) => (i + 1) % slideCount);
+    }, carouselIntervalSec * 1000);
+    return () => window.clearInterval(id);
+  }, [
+    carouselMode,
+    prefersReducedMotion,
+    carouselPaused,
+    carouselIntervalSec,
+    costCategories.data?.categories?.length,
+  ]);
+
+  useEffect(() => {
+    const categoriesLen = costCategories.data?.categories?.length ?? 0;
+    const slideCount = 8 + categoriesLen;
+    setCarouselSlideIndex((i) => Math.min(i, Math.max(0, slideCount - 1)));
+  }, [costCategories.data?.categories?.length]);
+
+  useEffect(() => {
+    if (carouselMode) setCarouselSlideIndex(0);
+  }, [carouselMode]);
 
   useEffect(() => {
     if (!profile) {
@@ -573,30 +647,375 @@ export function DashboardSection() {
       total_cost: c.total_cost,
       coverage_pct: c.coverage?.coverage_pct,
     })) ?? [];
+  const categoriesList = costCategories.data?.categories ?? [];
+  const carouselSlideCount = 8 + categoriesList.length;
+
+  const carouselPrev = () =>
+    setCarouselSlideIndex((i) => (i - 1 + carouselSlideCount) % carouselSlideCount);
+  const carouselNext = () => setCarouselSlideIndex((i) => (i + 1) % carouselSlideCount);
+
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-finops-text-primary">Costs dashboard</h3>
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1.5 text-xs text-finops-text-secondary">
-          <span className="whitespace-nowrap">Costs period</span>
-          <select
-            value={dashboardPeriod}
-            onChange={(e) => setDashboardPeriod(e.target.value)}
-            className="max-w-[12rem] rounded border border-finops-border bg-finops-bg-page px-2 py-1 text-xs text-finops-text-primary"
-            aria-label="Costs period for service and account tables"
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-finops-text-secondary">
+            <span className="whitespace-nowrap">Costs period</span>
+            <select
+              value={dashboardPeriod}
+              onChange={(e) => setDashboardPeriod(e.target.value)}
+              className="max-w-[12rem] rounded border border-finops-border bg-finops-bg-page px-2 py-1 text-xs text-finops-text-primary"
+              aria-label="Costs period for service and account tables"
+            >
+              {DASHBOARD_PERIOD_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span
+            className="text-[11px] text-finops-text-secondary"
+            title="Applies to the two tables below. Drill-down rows may still use month-to-date data."
           >
-            {DASHBOARD_PERIOD_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="text-[11px] text-finops-text-secondary" title="Applies to the two tables below. Drill-down rows may still use month-to-date data.">
-          {dashboardPeriodLabel(dashboardPeriod)}
-        </span>
+            {dashboardPeriodLabel(dashboardPeriod)}
+          </span>
+        </div>
+        <div
+          className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:ml-auto sm:w-auto"
+          role="group"
+          aria-label="Costs dashboard layout"
+        >
+          <span className="text-[10px] font-bold uppercase tracking-wider text-finops-text-secondary">
+            Layout
+          </span>
+          <div className="inline-flex rounded-xl border-2 border-finops-border bg-finops-bg-page p-1 shadow-lg dark:border-finops-border dark:bg-finops-bg-surface/90 dark:shadow-black/40">
+            <button
+              type="button"
+              aria-pressed={!carouselMode}
+              onClick={() => setCarouselMode(false)}
+              className={`rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                !carouselMode
+                  ? 'bg-finops-btn-primary text-finops-badge-text shadow-md'
+                  : 'text-finops-text-secondary hover:bg-finops-bg-page/80 hover:text-finops-text-primary dark:hover:bg-finops-bg-surface'
+              }`}
+            >
+              Grid
+            </button>
+            <button
+              type="button"
+              aria-pressed={carouselMode}
+              onClick={() => setCarouselMode(true)}
+              className={`rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                carouselMode
+                  ? 'bg-finops-btn-primary text-finops-badge-text shadow-md'
+                  : 'text-finops-text-secondary hover:bg-finops-bg-page/80 hover:text-finops-text-primary dark:hover:bg-finops-bg-surface'
+              }`}
+            >
+              Carousel
+            </button>
+          </div>
+        </div>
       </div>
 
+      {carouselMode ? (
+        <CostsDashboardCarousel
+          slides={[
+            {
+              key: 'by-service',
+              node: (
+                <MiniTable
+                  title={`By AWS service (${dashboardPeriodLabel(dashboardPeriod)})`}
+                  rows={byService.error ? null : byService.data}
+                  columns={['service', 'cost']}
+                  keyField="service"
+                  loading={byService.loading}
+                  emptyMessage={byService.error ? byService.error : 'No AWS service cost data'}
+                  onRowClick={(row) => {
+                    if (!row || !row.service) return;
+                    setSelectedService(row.service);
+                    setServiceAccounts(null);
+                    setServiceAccountsError(null);
+                    if (!profile) return;
+                    getServiceAccountsForService(profile, row.service)
+                      .then((accounts) => {
+                        setServiceAccounts(accounts);
+                      })
+                      .catch((e) => {
+                        setServiceAccountsError(e.message);
+                      });
+                  }}
+                />
+              ),
+            },
+            {
+              key: 'by-account',
+              node: (
+                <MiniTable
+                  title={`By linked account (${dashboardPeriodLabel(dashboardPeriod)})`}
+                  rows={byAccount.error ? null : byAccountRows}
+                  columns={['account', 'cost']}
+                  keyField="account"
+                  loading={byAccount.loading}
+                  emptyMessage={byAccount.error ? byAccount.error : 'No linked account data'}
+                  onRowClick={(row) => {
+                    if (!row || !row.account_id) return;
+                    setSelectedAccount(row.account_name || row.account_id);
+                    setAccountServices(null);
+                    setAccountServicesError(null);
+                    if (!profile) return;
+                    getServicesForAccount(profile, row.account_id)
+                      .then((services) => {
+                        setAccountServices(services);
+                      })
+                      .catch((e) => {
+                        setAccountServicesError(e.message);
+                      });
+                  }}
+                />
+              ),
+            },
+            {
+              key: 'marketplace',
+              node: (
+                <MiniTable
+                  title="Marketplace (month to date)"
+                  rows={byMarketplace.error ? null : byMarketplace.data}
+                  columns={['product', 'cost']}
+                  keyField="product"
+                  loading={byMarketplace.loading}
+                  emptyMessage={byMarketplace.error ? byMarketplace.error : 'No marketplace usage this month'}
+                />
+              ),
+            },
+            {
+              key: 'recs',
+              node: (
+                <MiniTable
+                  title="Optimization recommendations (top 10)"
+                  rows={recommendations.error ? null : recommendationRows}
+                  columns={['description', 'value']}
+                  keyField="recommendationId"
+                  loading={recommendations.loading}
+                  emptyMessage={
+                    recommendations.error ? recommendations.error : 'No optimization recommendations'
+                  }
+                  onRowClick={setSelectedRecommendation}
+                />
+              ),
+            },
+            {
+              key: 'anomalies',
+              node: (
+                <MiniTable
+                  title="Anomalies (last 3 days)"
+                  rows={anomalies.error ? null : anomalyRows}
+                  columns={['description', 'startDate', 'endDate', 'TotalActualSpend', 'TotalExpectedSpend']}
+                  keyField="anomalyId"
+                  loading={anomalies.loading}
+                  emptyMessage={anomalies.error ? anomalies.error : 'No anomalies in the last 3 days'}
+                  onRowClick={setSelectedAnomaly}
+                />
+              ),
+            },
+            {
+              key: 'sp-summary',
+              node: (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-finops-text-secondary">
+                      Savings Plans
+                    </h4>
+                    <SavingsPlansPeriodPicker value={savingsPlansMonths} onChange={setSavingsPlansMonths} />
+                  </div>
+                  {savingsPlans.loading ? (
+                    <div className="flex min-h-[4rem] items-center justify-center rounded border border-finops-border bg-finops-bg-page/50 py-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-finops-border border-t-finops-accent" />
+                        <p className="text-xs text-finops-text-secondary">Loading…</p>
+                      </div>
+                    </div>
+                  ) : savingsPlans.error ? (
+                    <p className="text-sm text-red-600">{savingsPlans.error}</p>
+                  ) : savingsPlansSummary ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowSavingsPlansDetails((prev) => !prev)}
+                      className="w-full rounded border border-finops-border bg-finops-bg-page/50 px-2 py-2 text-left text-xs hover:border-slate-300"
+                    >
+                      <p className="text-finops-text-primary">
+                        Utilization:{' '}
+                        <strong
+                          className={
+                            isSpUtilOrCoverageLow(savingsPlansSummary.utilization_percentage)
+                              ? spLowMetricClassName
+                              : undefined
+                          }
+                        >
+                          {Number(savingsPlansSummary.utilization_percentage ?? 0).toFixed(1)}%
+                        </strong>
+                      </p>
+                      <p className="text-finops-text-primary">
+                        Coverage:{' '}
+                        <strong
+                          className={
+                            isSpUtilOrCoverageLow(savingsPlansSummary.coverage_percentage)
+                              ? spLowMetricClassName
+                              : undefined
+                          }
+                        >
+                          {Number(savingsPlansSummary.coverage_percentage ?? 0).toFixed(1)}%
+                        </strong>
+                      </p>
+                      <p className="text-finops-text-secondary">
+                        Last {savingsPlansSummary.period_months ?? 1} month(s)
+                      </p>
+                      <p className="mt-1 text-[11px] text-finops-text-secondary">
+                        Click for details of this period.
+                      </p>
+                    </button>
+                  ) : (
+                    <p className="text-sm text-finops-text-secondary">No Savings Plans data</p>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'cat-summary',
+              node: (
+                <MiniTable
+                  title="Summary by cost category rule"
+                  rows={costCategories.error ? null : costCategorySummaryRows}
+                  columns={['name', 'total_cost', 'coverage_pct']}
+                  keyField="name"
+                  loading={costCategories.loading}
+                  emptyMessage={
+                    costCategories.error
+                      ? costCategories.error
+                      : 'No cost category rules or no data for this period'
+                  }
+                />
+              ),
+            },
+            ...categoriesList.map((cat) => ({
+              key: `cat-detail-${cat.name}`,
+              node: (
+                <MiniTable
+                  title={`${cat.name} — Details`}
+                  rows={cat.rows}
+                  columns={['value_key', 'cost', 'pct_of_category_total']}
+                  keyField="value_key"
+                  emptyMessage="No rows for this category"
+                />
+              ),
+            })),
+            {
+              key: 'purchase',
+              node: (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-finops-text-secondary">
+                    From Cost Explorer ({purchaseLookbackUi}-day lookback, {purchaseAccountScopeLabel}). The
+                    full recommendation matrix for this lookback is fetched once per session and cached;
+                    term and payment only filter the table without new requests.
+                    {purchaseMatrixServerFiltered
+                      ? ' Server returned a single term × payment slice.'
+                      : ' Some CE calls may fail and still show partial results.'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                    <label className="flex items-center gap-1.5 text-finops-text-secondary">
+                      <span className="whitespace-nowrap">Lookback</span>
+                      <select
+                        value={purchaseLookbackUi}
+                        onChange={(e) => setPurchaseLookbackUi(e.target.value)}
+                        className="max-w-[11rem] rounded border border-finops-border bg-finops-bg-page px-2 py-1 text-finops-text-primary"
+                      >
+                        {SP_PURCHASE_LOOKBACK_UI_OPTIONS.map((o) => (
+                          <option key={o.ui} value={o.ui}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-1.5 text-finops-text-secondary">
+                      <span className="whitespace-nowrap">Term</span>
+                      <select
+                        value={purchaseTerm}
+                        onChange={(e) => setPurchaseTerm(e.target.value)}
+                        className="max-w-[11rem] rounded border border-finops-border bg-finops-bg-page px-2 py-1 text-finops-text-primary"
+                      >
+                        {SP_PURCHASE_TERM_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-1.5 text-finops-text-secondary">
+                      <span className="whitespace-nowrap">Payment</span>
+                      <select
+                        value={purchasePayment}
+                        onChange={(e) => setPurchasePayment(e.target.value)}
+                        className="max-w-[12rem] rounded border border-finops-border bg-finops-bg-page px-2 py-1 text-finops-text-primary"
+                      >
+                        {SP_PURCHASE_PAYMENT_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {savingsPlansPurchase.data?.errors?.length > 0 && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                      {savingsPlansPurchase.data.errors.length} parameter combination(s) returned an error
+                      (see server logs for details).
+                    </p>
+                  )}
+                  <MiniTable
+                    title="Purchase recommendations"
+                    rows={savingsPlansPurchase.error ? null : savingsPlansPurchaseRows}
+                    maxRows={null}
+                    columns={[
+                      'savings_plans_type',
+                      'term_in_years',
+                      'payment_option',
+                      'hourly_commitment_to_purchase',
+                      'estimated_monthly_savings_amount',
+                      'estimated_savings_percentage',
+                      'estimated_roi',
+                      'region',
+                    ]}
+                    sortableColumns={[
+                      'estimated_monthly_savings_amount',
+                      'estimated_savings_percentage',
+                      'estimated_roi',
+                    ]}
+                    sortColumn={purchaseSort.column}
+                    sortDirection={purchaseSort.direction}
+                    onSortColumn={handlePurchaseSortColumn}
+                    keyField="__key"
+                    loading={savingsPlansPurchase.loading}
+                    emptyMessage={
+                      savingsPlansPurchase.error
+                        ? savingsPlansPurchase.error
+                        : 'No Savings Plans purchase recommendations for this period'
+                    }
+                  />
+                </div>
+              ),
+            },
+          ]}
+          activeIndex={carouselSlideIndex}
+          onPrev={carouselPrev}
+          onNext={carouselNext}
+          intervalSec={carouselIntervalSec}
+          onIntervalChange={setCarouselIntervalSec}
+          paused={carouselPaused}
+          onPauseToggle={() => setCarouselPaused((p) => !p)}
+          prefersReducedMotion={prefersReducedMotion}
+        />
+      ) : (
+        <>
       <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
         <MiniTable
           title={`By AWS service (${dashboardPeriodLabel(dashboardPeriod)})`}
@@ -938,6 +1357,8 @@ export function DashboardSection() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {selectedRecommendation && (
         <div className="mt-2 rounded border border-finops-border bg-finops-bg-surface p-3 text-xs shadow-sm space-y-2">

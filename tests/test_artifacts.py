@@ -9,7 +9,10 @@ from finops_buddy.agent.artifacts import (
 
 def test_parse_reply_extracts_data_uri_images():
     """When reply contains markdown ![alt](data:image/png;base64,...), returns list of artifacts."""
-    tiny_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    tiny_png = (
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ"
+        "AAAABJRU5ErkJggg=="
+    )
     reply = (
         "Here is the chart:\n\n"
         f"![Cost trend](data:image/png;base64,{tiny_png})\n\n"
@@ -45,7 +48,10 @@ def test_strip_non_data_uri_images_removes_placeholders():
 
 def test_strip_non_data_uri_images_keeps_data_uri():
     """Leaves data:image/ images intact."""
-    b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    b64 = (
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ"
+        "AAAABJRU5ErkJggg=="
+    )
     data_uri = f"data:image/png;base64,{b64}"
     reply = f"Text\n\n![Cost]({data_uri})\n\nMore."
     out = strip_non_data_uri_images(reply)
