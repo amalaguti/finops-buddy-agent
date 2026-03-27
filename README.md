@@ -20,7 +20,7 @@
 
 | You get | How |
 |--------|-----|
-| **Costs dashboard** | Month-to-date by service, account, Marketplace; recommendations, anomalies, Savings Plans (see [Features](docs/FEATURES.md)) |
+| **Costs dashboard** | By service & account period selector (MTD or rolling days), Marketplace, and more (see [Features](docs/FEATURES.md); API query `period` in [Configuration](docs/CONFIGURATION.md#costs-dashboard-http-api)) |
 | **Conversational analysis** | Ask in plain English; agent uses AWS APIs and optional [MCP servers](docs/MCP.md) |
 | **Safe operations** | Read-only tool allow-list + optional input guardrail |
 | **Same-origin web app** | Built UI served from FastAPI when you run `finops serve` — simple packaging, no CORS for the default path |

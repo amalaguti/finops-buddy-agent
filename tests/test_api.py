@@ -174,6 +174,22 @@ def test_get_costs_fails_on_cost_explorer_error(client):
     assert "Access denied" in resp.json()["detail"]
 
 
+def test_costs_dashboard_by_service_400_invalid_period(client):
+    """GET /costs/dashboard/by-service with invalid period returns 400."""
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["p"]):
+        resp = client.get("/costs/dashboard/by-service", params={"profile": "p", "period": "bogus"})
+    assert resp.status_code == 400
+    assert "Invalid" in str(resp.json().get("detail", ""))
+
+
+def test_costs_dashboard_by_account_400_invalid_period(client):
+    """GET /costs/dashboard/by-account with invalid period returns 400."""
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["p"]):
+        resp = client.get("/costs/dashboard/by-account", params={"profile": "p", "period": "bad"})
+    assert resp.status_code == 400
+    assert "Invalid" in str(resp.json().get("detail", ""))
+
+
 def test_get_costs_dashboard_savings_plans_purchase_recommendations_returns_200(client):
     """GET purchase-recommendations slice returns lookback and recommendations."""
     payload = {

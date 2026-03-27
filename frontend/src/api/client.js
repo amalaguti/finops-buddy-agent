@@ -89,19 +89,23 @@ export async function getCostsDashboard(profile) {
   return data;
 }
 
-/** Cache keys for dashboard slices: `${profileKey}:${dateKey}:sliceName`. */
-function dashboardSliceCacheKey(profile, sliceName) {
+/** Cache keys for dashboard slices: `${profileKey}:${dateKey}:sliceName[:period]`. */
+function dashboardSliceCacheKey(profile, sliceName, period = 'mtd') {
   const profileKey = profile || 'default';
   const dateKey = todayKey();
-  return `${profileKey}:${dateKey}:${sliceName}`;
+  const p = period && String(period).trim() !== '' ? String(period).trim().toLowerCase() : 'mtd';
+  return `${profileKey}:${dateKey}:${sliceName}:${p}`;
 }
 
 const dashboardByServiceCache = new Map();
-export async function getCostsDashboardByService(profile) {
-  const key = dashboardSliceCacheKey(profile, 'by-service');
+/** @param {string} [period] mtd | 7d | 30d | 60d | 90d */
+export async function getCostsDashboardByService(profile, period = 'mtd') {
+  const key = dashboardSliceCacheKey(profile, 'by-service', period);
   const cached = dashboardByServiceCache.get(key);
   if (cached !== undefined) return cached;
-  const res = await fetch(url('/costs/dashboard/by-service', profile), { headers: headers(profile) });
+  const res = await fetch(url('/costs/dashboard/by-service', profile, { period }), {
+    headers: headers(profile),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || res.statusText);
@@ -112,11 +116,14 @@ export async function getCostsDashboardByService(profile) {
 }
 
 const dashboardByAccountCache = new Map();
-export async function getCostsDashboardByAccount(profile) {
-  const key = dashboardSliceCacheKey(profile, 'by-account');
+/** @param {string} [period] mtd | 7d | 30d | 60d | 90d */
+export async function getCostsDashboardByAccount(profile, period = 'mtd') {
+  const key = dashboardSliceCacheKey(profile, 'by-account', period);
   const cached = dashboardByAccountCache.get(key);
   if (cached !== undefined) return cached;
-  const res = await fetch(url('/costs/dashboard/by-account', profile), { headers: headers(profile) });
+  const res = await fetch(url('/costs/dashboard/by-account', profile, { period }), {
+    headers: headers(profile),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || res.statusText);

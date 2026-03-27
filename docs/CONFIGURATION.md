@@ -43,6 +43,8 @@ A commented template lives in [`config/settings.yaml`](../config/settings.yaml) 
 
 ## Costs dashboard HTTP API
 
+- **`GET /costs/dashboard/by-service`** and **`GET /costs/dashboard/by-account`** — Optional query **`period`** (default **`mtd`**): **`mtd`** (month to date through today), **`7d`**, **`30d`**, **`60d`**, **`90d`** (rolling *N* calendar days including today). Invalid values → **400 Bad Request**. The response body is a JSON **array** of rows (same shape as when `period` is omitted). The hosted UI uses one **Costs period** control for both tables and caches responses per profile and period for the browser session.
+
 - **`GET /costs/dashboard/savings-plans-purchase-recommendations`** — Query parameter **`lookback_period_in_days`** (default **`THIRTY_DAYS`**): Cost Explorer allows **`SEVEN_DAYS`**, **`THIRTY_DAYS`**, or **`SIXTY_DAYS`** for this operation. Invalid values → **400 Bad Request**. Optional **`term_in_years`** (`ONE_YEAR` or `THREE_YEARS`) and **`payment_option`** (`NO_UPFRONT`, `PARTIAL_UPFRONT`, or `ALL_UPFRONT`). When **both** are set, Cost Explorer is queried only for that term × payment (across all Savings Plans types). When **both** are omitted, the full matrix is used. Passing **only one** of term/payment → **400 Bad Request**. The JSON response includes **`lookback_period_in_days`**, **`matrix_term_in_years`**, and **`matrix_payment_option`** (each matrix field `null` when the full matrix was used).
 
 ## Environment variables

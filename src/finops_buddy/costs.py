@@ -30,6 +30,41 @@ def _current_month_range() -> tuple[str, str]:
     return start.isoformat(), end.isoformat()
 
 
+def _rolling_days_range_including_today(days: int) -> tuple[str, str]:
+    """Return (start, end) for the last ``days`` calendar days including today; end is exclusive."""
+    if days < 1:
+        raise ValueError("days must be at least 1")
+    today = date.today()
+    start = today - timedelta(days=days - 1)
+    end = today + timedelta(days=1)
+    return start.isoformat(), end.isoformat()
+
+
+_DASHBOARD_PERIOD_TO_DAYS: dict[str, int | None] = {
+    "mtd": None,
+    "7d": 7,
+    "30d": 30,
+    "60d": 60,
+    "90d": 90,
+}
+
+
+def dashboard_period_to_date_range(period: str) -> tuple[str, str]:
+    """
+    Map dashboard period preset to Cost Explorer (start, end) with end exclusive.
+
+    Presets: mtd, 7d, 30d, 60d, 90d. Rolling windows use N days **including** today.
+    """
+    key = (period or "mtd").strip().lower()
+    if key not in _DASHBOARD_PERIOD_TO_DAYS:
+        allowed = ", ".join(sorted(_DASHBOARD_PERIOD_TO_DAYS))
+        raise ValueError(f"Invalid period {period!r}; use one of: {allowed}")
+    days = _DASHBOARD_PERIOD_TO_DAYS[key]
+    if days is None:
+        return _current_month_range()
+    return _rolling_days_range_including_today(days)
+
+
 def get_linked_account_ids(
     session: boto3.Session,
     *,

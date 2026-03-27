@@ -25,6 +25,7 @@ from finops_buddy.config import get_master_profile
 from finops_buddy.context import get_account_context
 from finops_buddy.costs import (
     CostExplorerError,
+    dashboard_period_to_date_range,
     get_cost_categories_dashboard,
     get_costs_by_account_and_service,
     get_costs_by_linked_account,
@@ -525,14 +526,24 @@ def _purchase_recommendation_account_scope(real_profile: str) -> str:
 def get_costs_dashboard_by_service(
     request: Request,
     profile: str | None = Depends(resolve_profile),
+    period: str = Query(
+        "mtd",
+        description=(
+            "Time range: mtd, 7d, 30d, 60d, 90d (rolling days include today; mtd = month to date)."
+        ),
+    ),
 ) -> list[dict]:
     """
-    Return current-month costs by AWS service only (dashboard slice).
+    Return costs by AWS service only (dashboard slice). Default period is month-to-date.
     When X-Demo-Mode: true, account identifiers are masked.
     """
+    try:
+        start, end = dashboard_period_to_date_range(period)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     session, _ = _resolve_dashboard_session(request, profile)
     try:
-        by_service = get_costs_by_service_aws_only(session)
+        by_service = get_costs_by_service_aws_only(session, start=start, end=end)
     except CostExplorerError as e:
         logger.exception("GET /costs/dashboard/by-service Cost Explorer error: %s", e)
         raise HTTPException(status_code=403, detail=str(e)) from e
@@ -547,14 +558,25 @@ def get_costs_dashboard_by_service(
 def get_costs_dashboard_by_account(
     request: Request,
     profile: str | None = Depends(resolve_profile),
+    period: str = Query(
+        "mtd",
+        description=(
+            "Time range: mtd, 7d, 30d, 60d, 90d (rolling days include today; mtd = month to date)."
+        ),
+    ),
 ) -> list[dict]:
     """
-    Return current-month costs by linked account with account names (dashboard slice).
+    Return costs by linked account with account names (dashboard slice).
+    Default period is month-to-date.
     When X-Demo-Mode: true, account identifiers are masked.
     """
+    try:
+        start, end = dashboard_period_to_date_range(period)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     session, _ = _resolve_dashboard_session(request, profile)
     try:
-        by_account = get_costs_by_linked_account(session)
+        by_account = get_costs_by_linked_account(session, start=start, end=end)
     except CostExplorerError as e:
         logger.exception("GET /costs/dashboard/by-account Cost Explorer error: %s", e)
         raise HTTPException(status_code=403, detail=str(e)) from e

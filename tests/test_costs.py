@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
@@ -10,6 +11,7 @@ from botocore.exceptions import ClientError
 
 from finops_buddy.costs import (
     CostExplorerError,
+    dashboard_period_to_date_range,
     get_costs_by_linked_account,
     get_costs_by_service_aws_only,
     get_costs_marketplace,
@@ -323,3 +325,27 @@ def test_get_savings_plans_purchase_recommendations_raises_when_all_access_denie
                 with pytest.raises(CostExplorerError) as exc_info:
                     get_savings_plans_purchase_recommendations_dashboard(session)
     assert "GetSavingsPlansPurchaseRecommendation" in str(exc_info.value)
+
+
+@patch("finops_buddy.costs.date")
+def test_dashboard_period_to_date_range_mtd(mock_date_mod):
+    """Scenario: Default is month to date — rolling uses calendar month through today."""
+    mock_date_mod.today.return_value = date(2026, 3, 15)
+    start, end = dashboard_period_to_date_range("mtd")
+    assert start == "2026-03-01"
+    assert end == "2026-03-16"
+
+
+@patch("finops_buddy.costs.date")
+def test_dashboard_period_to_date_range_30d_rolling(mock_date_mod):
+    """Scenario: Rolling last 30 days — N days including today."""
+    mock_date_mod.today.return_value = date(2026, 3, 15)
+    start, end = dashboard_period_to_date_range("30d")
+    assert start == "2026-02-14"
+    assert end == "2026-03-16"
+
+
+def test_dashboard_period_to_date_range_invalid_raises():
+    """Scenario: Invalid period — ValueError."""
+    with pytest.raises(ValueError, match="Invalid period"):
+        dashboard_period_to_date_range("bogus")

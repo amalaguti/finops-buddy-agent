@@ -67,6 +67,19 @@ function isSpUtilOrCoverageLow(value) {
 const spLowMetricClassName =
   'rounded px-0.5 font-semibold !text-red-700 dark:!text-red-300 bg-red-100/90 dark:bg-red-950/55';
 
+/** Matches backend `period` query: mtd, 7d, 30d, 60d, 90d. */
+const DASHBOARD_PERIOD_OPTIONS = [
+  { value: 'mtd', label: 'Month to date' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: '60d', label: 'Last 60 days' },
+  { value: '90d', label: 'Last 90 days' },
+];
+
+function dashboardPeriodLabel(period) {
+  return DASHBOARD_PERIOD_OPTIONS.find((o) => o.value === period)?.label ?? 'Month to date';
+}
+
 function formatColumnHeader(key) {
   return COLUMN_LABELS[key] ?? key;
 }
@@ -395,6 +408,7 @@ export function DashboardSection() {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [accountServices, setAccountServices] = useState(null);
   const [accountServicesError, setAccountServicesError] = useState(null);
+  const [dashboardPeriod, setDashboardPeriod] = useState('mtd');
 
   useEffect(() => {
     if (!profile) {
@@ -424,11 +438,11 @@ export function DashboardSection() {
       if (completed === 8) markCostsLoaded(forProfile);
     };
 
-    getCostsDashboardByService(forProfile)
+    getCostsDashboardByService(forProfile, dashboardPeriod)
       .then((data) => setByService({ data, error: null, loading: false }))
       .catch((e) => setByService({ data: null, error: e.message, loading: false }))
       .finally(maybeDone);
-    getCostsDashboardByAccount(forProfile)
+    getCostsDashboardByAccount(forProfile, dashboardPeriod)
       .then((data) => setByAccount({ data, error: null, loading: false }))
       .catch((e) => setByAccount({ data: null, error: e.message, loading: false }))
       .finally(maybeDone);
@@ -458,7 +472,7 @@ export function DashboardSection() {
       .then((data) => setSavingsPlansPurchase({ data, error: null, loading: false }))
       .catch((e) => setSavingsPlansPurchase({ data: null, error: e.message, loading: false }))
       .finally(maybeDone);
-  }, [profile, purchaseLookbackUi, markCostsLoaded]);
+  }, [profile, purchaseLookbackUi, dashboardPeriod, markCostsLoaded]);
 
   useEffect(() => {
     setCostCategoryRuleExpanded({});
@@ -562,13 +576,30 @@ export function DashboardSection() {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-finops-text-primary">Costs dashboard</h3>
-      <p className="text-xs text-finops-text-secondary" title="Costs from the 1st of the month through today.">
-        Month to date
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1.5 text-xs text-finops-text-secondary">
+          <span className="whitespace-nowrap">Costs period</span>
+          <select
+            value={dashboardPeriod}
+            onChange={(e) => setDashboardPeriod(e.target.value)}
+            className="max-w-[12rem] rounded border border-finops-border bg-finops-bg-page px-2 py-1 text-xs text-finops-text-primary"
+            aria-label="Costs period for service and account tables"
+          >
+            {DASHBOARD_PERIOD_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="text-[11px] text-finops-text-secondary" title="Applies to the two tables below. Drill-down rows may still use month-to-date data.">
+          {dashboardPeriodLabel(dashboardPeriod)}
+        </span>
+      </div>
 
       <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
         <MiniTable
-          title="By AWS service (month to date)"
+          title={`By AWS service (${dashboardPeriodLabel(dashboardPeriod)})`}
           rows={byService.error ? null : byService.data}
           columns={['service', 'cost']}
           keyField="service"
@@ -590,7 +621,7 @@ export function DashboardSection() {
           }}
         />
         <MiniTable
-          title="By linked account (month to date)"
+          title={`By linked account (${dashboardPeriodLabel(dashboardPeriod)})`}
           rows={byAccount.error ? null : byAccountRows}
           columns={['account', 'cost']}
           keyField="account"
