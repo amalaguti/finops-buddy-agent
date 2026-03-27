@@ -34,9 +34,9 @@ from finops_buddy.settings import get_demo_account_mapping
 
 from .demo import get_demo_system_prompt_addition
 
-
 logger = logging.getLogger(__name__)
-# Ensure chat logger emits to console (same as app.py) so "Loading MCP…" appears in FastAPI/uvicorn logs
+# Ensure chat logger emits to console (same as app.py) so "Loading MCP…" appears in
+# FastAPI/uvicorn logs
 if not logger.handlers:
     _h = logging.StreamHandler()
     _h.setFormatter(logging.Formatter("%(levelname)s [%(name)s] %(message)s"))
@@ -426,9 +426,7 @@ def run_chat_turn(
                     }
         except Exception:
             pass
-        artifacts = (
-            parse_reply_data_uri_images(text) + chart_artifacts + file_export_artifacts
-        )
+        artifacts = parse_reply_data_uri_images(text) + chart_artifacts + file_export_artifacts
         if chart_artifacts:
             # Remove model placeholders like ![Chart](url) so UI doesn't show "[image not shown]"
             text = strip_non_data_uri_images(text)

@@ -9,9 +9,10 @@ from finops_buddy.agent.artifacts import (
 
 def test_parse_reply_extracts_data_uri_images():
     """When reply contains markdown ![alt](data:image/png;base64,...), returns list of artifacts."""
+    tiny_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
     reply = (
         "Here is the chart:\n\n"
-        "![Cost trend](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==)\n\n"
+        f"![Cost trend](data:image/png;base64,{tiny_png})\n\n"
         "And another:\n\n"
         "![Breakdown](data:image/png;base64,QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=)"
     )
@@ -34,7 +35,7 @@ def test_parse_reply_returns_empty_when_no_images():
 
 
 def test_strip_non_data_uri_images_removes_placeholders():
-    """strip_non_data_uri_images removes ![alt](non-data-uri) so UI does not show '[image not shown]'."""
+    """Removes ![alt](non-data-uri) so UI does not show '[image not shown]'."""
     reply = "Here is the chart:\n\n![Chart](https://example.com/chart.png)\n\nDone."
     out = strip_non_data_uri_images(reply)
     assert "![Chart]" not in out or "data:image/" in out
@@ -43,8 +44,9 @@ def test_strip_non_data_uri_images_removes_placeholders():
 
 
 def test_strip_non_data_uri_images_keeps_data_uri():
-    """strip_non_data_uri_images leaves data:image/ images intact."""
-    data_uri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    """Leaves data:image/ images intact."""
+    b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    data_uri = f"data:image/png;base64,{b64}"
     reply = f"Text\n\n![Cost]({data_uri})\n\nMore."
     out = strip_non_data_uri_images(reply)
     assert data_uri in out

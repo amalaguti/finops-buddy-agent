@@ -203,6 +203,40 @@ export async function getCostsDashboardCostCategories(profile) {
   return data;
 }
 
+const dashboardSavingsPlansPurchaseCache = new Map();
+
+/**
+ * @param {string} profile
+ * @param {{ lookbackPeriodInDays?: string, termInYears?: string, paymentOption?: string }} [options]
+ *   Session-cached per profile + day + lookback (+ optional server-side term/payment matrix filter).
+ *   Dashboard uses full matrix per lookback and filters term/payment in the UI.
+ */
+export async function getCostsDashboardSavingsPlansPurchaseRecommendations(profile, options = {}) {
+  const {
+    lookbackPeriodInDays = 'THIRTY_DAYS',
+    termInYears,
+    paymentOption,
+  } = options;
+  const sliceKey = `savings-plans-purchase:${lookbackPeriodInDays}:${termInYears ?? 'all'}:${paymentOption ?? 'all'}`;
+  const key = dashboardSliceCacheKey(profile, sliceKey);
+  const cached = dashboardSavingsPlansPurchaseCache.get(key);
+  if (cached !== undefined) return cached;
+  const query = { lookback_period_in_days: lookbackPeriodInDays };
+  if (termInYears != null && termInYears !== '') query.term_in_years = termInYears;
+  if (paymentOption != null && paymentOption !== '') query.payment_option = paymentOption;
+  const res = await fetch(
+    url('/costs/dashboard/savings-plans-purchase-recommendations', profile, query),
+    { headers: headers(profile) }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || res.statusText);
+  }
+  const data = await res.json();
+  dashboardSavingsPlansPurchaseCache.set(key, data);
+  return data;
+}
+
 /** In-memory cache for service/account breakdown: key = `${profileKey}:${dateKey}:${service}`. */
 const serviceAccountsCache = new Map();
 

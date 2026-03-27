@@ -20,7 +20,7 @@ _FastAPI OpenAPI documentation: profiles, context, costs, dashboard slices, tool
 
 ## What it does
 
-**Web costs dashboard** — The hosted UI includes a structured **costs dashboard** (aligned with AWS Cost Explorer) for the selected AWS profile. It shows **month-to-date** spend grouped **by AWS service** (AWS-only, excluding Marketplace), **by linked account** (with friendly names where resolvable), and **Marketplace** usage. You can click rows to drill into **per-account service breakdown** or **per-service account breakdown**. The same panel surfaces **top cost optimization recommendations**, **Cost Anomaly Detection** anomalies (recent window), and **Savings Plans** utilization and coverage (with optional per-plan detail). A **Cost categories** section (loaded lazily) lists **AWS Cost Categories** rule names, spend by category value, and a **coverage** summary (categorized vs uncategorized spend) where the API returns data. Account identity (account ID, ARN, role) is summarized at the top so you always know which context you are viewing.
+**Web costs dashboard** — The hosted UI includes a structured **costs dashboard** (aligned with AWS Cost Explorer) for the selected AWS profile. It shows **month-to-date** spend grouped **by AWS service** (AWS-only, excluding Marketplace), **by linked account** (with friendly names where resolvable), and **Marketplace** usage. You can click rows to drill into **per-account service breakdown** or **per-service account breakdown**. The same panel surfaces **top cost optimization recommendations**, **Cost Anomaly Detection** anomalies (recent window), and **Savings Plans** utilization and coverage (with optional per-plan detail). A **Cost categories** section (loaded lazily) lists **AWS Cost Categories** rule names, spend by category value, and a **coverage** summary (categorized vs uncategorized spend) where the API returns data. A **Savings Plans purchase recommendations** section (below cost categories, lazy-loaded) shows **GetSavingsPlansPurchaseRecommendation** results across the supported plan-type / term / payment matrix (payer scope, 30-day lookback). Account identity (account ID, ARN, role) is summarized at the top so you always know which context you are viewing.
 
 **Conversational assistant** — Alongside the dashboard, FinOps Buddy gives you a chat interface to explore AWS costs across multiple accounts. Ask questions like "What's driving my EC2 costs this month?" or "Compare spend between prod and staging" — the AI agent queries AWS APIs (and MCP tools where configured), analyzes the data, and explains findings in plain English.
 
@@ -28,7 +28,7 @@ The application is **intentionally read-only**: it helps you investigate and und
 
 ## Key features
 
-- **Costs dashboard (web UI)** — Month-to-date tables by service, linked account, and Marketplace; drill-downs; recommendations, anomalies, Savings Plans summaries, and cost categories (values + coverage)
+- **Costs dashboard (web UI)** — Month-to-date tables by service, linked account, and Marketplace; drill-downs; recommendations, anomalies, Savings Plans utilization summaries, cost categories (values + coverage), and Savings Plans **purchase** recommendations (CE matrix)
 - **Multi-account cost analysis** — Switch between AWS profiles and compare costs across accounts
 - **Natural language queries** — Ask questions in plain English; the AI translates to API calls
 - **Real-time streaming responses** — Server-Sent Events deliver answers as they're generated

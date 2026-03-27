@@ -6,7 +6,7 @@ from finops_buddy.agent.chart_tools import _render_chart, create_chart_tools
 
 
 def test_create_chart_returns_line_chart_markdown():
-    """When create_chart is called with chart_type=line and valid data, returns markdown with data URI."""
+    """create_chart with chart_type=line returns markdown with a data URI image."""
     tools = create_chart_tools()
     create_chart = next(t for t in tools if getattr(t, "__name__", "") == "create_chart")
     result = create_chart(
@@ -20,7 +20,7 @@ def test_create_chart_returns_line_chart_markdown():
 
 
 def test_create_chart_returns_bar_chart_markdown():
-    """When create_chart is called with chart_type=bar and labels/values, returns markdown with image."""
+    """create_chart with chart_type=bar returns markdown with an embedded image."""
     tools = create_chart_tools()
     create_chart = next(t for t in tools if getattr(t, "__name__", "") == "create_chart")
     result = create_chart(
@@ -36,7 +36,7 @@ def test_create_chart_returns_bar_chart_markdown():
 
 
 def test_create_chart_returns_pie_chart_markdown():
-    """When create_chart is called with chart_type=pie and labels/values, returns markdown with image."""
+    """create_chart with chart_type=pie returns markdown with an embedded image."""
     tools = create_chart_tools()
     create_chart = next(t for t in tools if getattr(t, "__name__", "") == "create_chart")
     result = create_chart(
@@ -52,7 +52,7 @@ def test_create_chart_returns_pie_chart_markdown():
 
 
 def test_create_chart_returns_scatter_chart_markdown():
-    """When create_chart is called with chart_type=scatter and x/y data, returns markdown with image."""
+    """create_chart with chart_type=scatter returns markdown with an embedded image."""
     tools = create_chart_tools()
     create_chart = next(t for t in tools if getattr(t, "__name__", "") == "create_chart")
     result = create_chart(

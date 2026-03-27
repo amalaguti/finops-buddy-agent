@@ -72,9 +72,7 @@ def artifact_export_from_file(
         mime = "application/pdf"
         kind = "pdf"
     elif suffix == ".xlsx":
-        mime = (
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         kind = "excel"
     else:
         return None

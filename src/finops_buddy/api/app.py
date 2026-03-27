@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
@@ -33,6 +33,7 @@ from finops_buddy.costs import (
     get_costs_by_service_aws_only,
     get_costs_marketplace,
     get_savings_plans_per_plan_details,
+    get_savings_plans_purchase_recommendations_dashboard,
     get_savings_plans_utilization_coverage,
 )
 from finops_buddy.identity import (
@@ -504,6 +505,22 @@ def _resolve_dashboard_session(request: Request, profile: str | None):
         raise HTTPException(status_code=503, detail=f"Failed to resolve session: {e!s}") from e
 
 
+def _purchase_recommendation_account_scope(real_profile: str) -> str:
+    """
+    Cost Explorer GetSavingsPlansPurchaseRecommendation AccountScope.
+
+    Use PAYER when the dashboard profile matches ``FINOPS_MASTER_PROFILE`` (payer-wide
+    recommendations). Use LINKED for any other profile. When master profile is not configured,
+    use PAYER for all profiles.
+    """
+    master = get_master_profile()
+    if not master:
+        return "PAYER"
+    if real_profile.strip() == master.strip():
+        return "PAYER"
+    return "LINKED"
+
+
 @app.get("/costs/dashboard/by-service")
 def get_costs_dashboard_by_service(
     request: Request,
@@ -658,6 +675,56 @@ def get_costs_dashboard_cost_categories(
         payload = get_cost_categories_dashboard(session)
     except CostExplorerError as e:
         logger.exception("GET /costs/dashboard/cost-categories Cost Explorer error: %s", e)
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    if _is_demo_mode(request):
+        name_mapping, id_mapping = _get_demo_mappings()
+        payload = mask_response_data(payload, name_mapping, id_mapping)
+    return payload
+
+
+@app.get("/costs/dashboard/savings-plans-purchase-recommendations")
+def get_costs_dashboard_savings_plans_purchase_recommendations(
+    request: Request,
+    profile: str | None = Depends(resolve_profile),
+    term_in_years: str | None = Query(
+        None,
+        description="Filter matrix to this term (ONE_YEAR or THREE_YEARS). "
+        "If set, payment_option must also be set.",
+    ),
+    payment_option: str | None = Query(
+        None,
+        description="Filter matrix to this payment (NO_UPFRONT, PARTIAL_UPFRONT, ALL_UPFRONT). "
+        "If set, term_in_years must also be set.",
+    ),
+    lookback_period_in_days: str = Query(
+        "THIRTY_DAYS",
+        description="Cost Explorer lookback: SEVEN_DAYS, THIRTY_DAYS, or SIXTY_DAYS.",
+    ),
+) -> dict:
+    """
+    Return Savings Plans purchase recommendations (CE matrix). Lazy dashboard slice.
+    Omit term/payment for the full matrix; pass both to restrict to one term × one payment
+    (all SavingsPlansType values). Uses AccountScope PAYER when the selected profile matches
+    FINOPS_MASTER_PROFILE; otherwise LINKED. When X-Demo-Mode: true, account identifiers in rows
+    are masked.
+    """
+    session, real_profile = _resolve_dashboard_session(request, profile)
+    account_scope = _purchase_recommendation_account_scope(real_profile)
+    try:
+        payload = get_savings_plans_purchase_recommendations_dashboard(
+            session,
+            account_scope=account_scope,
+            lookback_period_in_days=lookback_period_in_days,
+            term_in_years=term_in_years,
+            payment_option=payment_option,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except CostExplorerError as e:
+        logger.exception(
+            "GET /costs/dashboard/savings-plans-purchase-recommendations Cost Explorer error: %s",
+            e,
+        )
         raise HTTPException(status_code=403, detail=str(e)) from e
     if _is_demo_mode(request):
         name_mapping, id_mapping = _get_demo_mappings()

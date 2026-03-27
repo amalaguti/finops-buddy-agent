@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tempfile
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -172,6 +172,208 @@ def test_get_costs_fails_on_cost_explorer_error(client):
                 resp = client.get("/costs", params={"profile": "p"})
     assert resp.status_code == 403
     assert "Access denied" in resp.json()["detail"]
+
+
+def test_get_costs_dashboard_savings_plans_purchase_recommendations_returns_200(client):
+    """GET purchase-recommendations slice returns lookback and recommendations."""
+    payload = {
+        "lookback_period_in_days": "THIRTY_DAYS",
+        "account_scope": "PAYER",
+        "matrix_term_in_years": None,
+        "matrix_payment_option": None,
+        "recommendations": [
+            {
+                "savings_plans_type": "COMPUTE_SP",
+                "term_in_years": "ONE_YEAR",
+                "payment_option": "NO_UPFRONT",
+                "hourly_commitment_to_purchase": 0.1,
+            }
+        ],
+    }
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["p"]):
+        with patch("finops_buddy.api.app.get_session"):
+            with patch(
+                "finops_buddy.api.app.get_savings_plans_purchase_recommendations_dashboard",
+                return_value=payload,
+            ):
+                resp = client.get(
+                    "/costs/dashboard/savings-plans-purchase-recommendations",
+                    params={"profile": "p"},
+                )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["lookback_period_in_days"] == "THIRTY_DAYS"
+    assert len(data["recommendations"]) == 1
+
+
+def test_get_costs_dashboard_savings_plans_purchase_recommendations_403_on_error(client):
+    """WHEN CE denies purchase recommendations for all cells THEN 403."""
+    from finops_buddy.costs import CostExplorerError
+
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["p"]):
+        with patch("finops_buddy.api.app.get_session"):
+            with patch(
+                "finops_buddy.api.app.get_savings_plans_purchase_recommendations_dashboard",
+                side_effect=CostExplorerError("Access denied"),
+            ):
+                resp = client.get(
+                    "/costs/dashboard/savings-plans-purchase-recommendations",
+                    params={"profile": "p"},
+                )
+    assert resp.status_code == 403
+    assert "Access denied" in resp.json()["detail"]
+
+
+def test_savings_plans_purchase_400_when_only_term_query_param(client):
+    """WHEN only term_in_years is passed THEN 400."""
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["p"]):
+        with patch("finops_buddy.api.app.get_session"):
+            resp = client.get(
+                "/costs/dashboard/savings-plans-purchase-recommendations",
+                params={"profile": "p", "term_in_years": "ONE_YEAR"},
+            )
+    assert resp.status_code == 400
+
+
+def test_savings_plans_purchase_passes_matrix_filters_to_dashboard(client):
+    """GET with term_in_years and payment_option passes them to the costs helper."""
+    mock_dash = MagicMock(
+        return_value={
+            "lookback_period_in_days": "THIRTY_DAYS",
+            "account_scope": "PAYER",
+            "matrix_term_in_years": "THREE_YEARS",
+            "matrix_payment_option": "ALL_UPFRONT",
+            "recommendations": [],
+        }
+    )
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["p"]):
+        with patch("finops_buddy.api.app.get_session"):
+            with patch(
+                "finops_buddy.api.app.get_savings_plans_purchase_recommendations_dashboard",
+                mock_dash,
+            ):
+                resp = client.get(
+                    "/costs/dashboard/savings-plans-purchase-recommendations",
+                    params={
+                        "profile": "p",
+                        "term_in_years": "THREE_YEARS",
+                        "payment_option": "ALL_UPFRONT",
+                    },
+                )
+    assert resp.status_code == 200
+    assert mock_dash.call_args[1]["term_in_years"] == "THREE_YEARS"
+    assert mock_dash.call_args[1]["payment_option"] == "ALL_UPFRONT"
+    assert mock_dash.call_args[1]["lookback_period_in_days"] == "THIRTY_DAYS"
+
+
+def test_savings_plans_purchase_passes_lookback_query_to_dashboard(client):
+    """GET with lookback_period_in_days passes it to the costs helper."""
+    mock_dash = MagicMock(
+        return_value={
+            "lookback_period_in_days": "SIXTY_DAYS",
+            "account_scope": "PAYER",
+            "matrix_term_in_years": None,
+            "matrix_payment_option": None,
+            "recommendations": [],
+        }
+    )
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["p"]):
+        with patch("finops_buddy.api.app.get_session"):
+            with patch(
+                "finops_buddy.api.app.get_savings_plans_purchase_recommendations_dashboard",
+                mock_dash,
+            ):
+                resp = client.get(
+                    "/costs/dashboard/savings-plans-purchase-recommendations",
+                    params={"profile": "p", "lookback_period_in_days": "SIXTY_DAYS"},
+                )
+    assert resp.status_code == 200
+    assert mock_dash.call_args[1]["lookback_period_in_days"] == "SIXTY_DAYS"
+
+
+def test_savings_plans_purchase_400_when_invalid_lookback(client):
+    """WHEN lookback_period_in_days is invalid THEN 400."""
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["p"]):
+        with patch("finops_buddy.api.app.get_session"):
+            resp = client.get(
+                "/costs/dashboard/savings-plans-purchase-recommendations",
+                params={"profile": "p", "lookback_period_in_days": "NINETY_DAYS"},
+            )
+    assert resp.status_code == 400
+
+
+def test_savings_plans_purchase_uses_payer_when_profile_matches_master(client):
+    """WHEN selected profile equals FINOPS_MASTER_PROFILE THEN account_scope PAYER."""
+    mock_dash = MagicMock(
+        return_value={
+            "lookback_period_in_days": "THIRTY_DAYS",
+            "account_scope": "PAYER",
+            "recommendations": [],
+        }
+    )
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["master", "other"]):
+        with patch("finops_buddy.api.app.get_session"):
+            with patch(
+                "finops_buddy.api.app.get_savings_plans_purchase_recommendations_dashboard",
+                mock_dash,
+            ):
+                with patch("finops_buddy.api.app.get_master_profile", return_value="master"):
+                    resp = client.get(
+                        "/costs/dashboard/savings-plans-purchase-recommendations",
+                        params={"profile": "master"},
+                    )
+    assert resp.status_code == 200
+    mock_dash.assert_called_once()
+    assert mock_dash.call_args[1]["account_scope"] == "PAYER"
+
+
+def test_savings_plans_purchase_uses_linked_when_profile_not_master(client):
+    """WHEN selected profile differs from FINOPS_MASTER_PROFILE THEN account_scope LINKED."""
+    mock_dash = MagicMock(
+        return_value={
+            "lookback_period_in_days": "THIRTY_DAYS",
+            "account_scope": "LINKED",
+            "recommendations": [],
+        }
+    )
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["master", "other"]):
+        with patch("finops_buddy.api.app.get_session"):
+            with patch(
+                "finops_buddy.api.app.get_savings_plans_purchase_recommendations_dashboard",
+                mock_dash,
+            ):
+                with patch("finops_buddy.api.app.get_master_profile", return_value="master"):
+                    resp = client.get(
+                        "/costs/dashboard/savings-plans-purchase-recommendations",
+                        params={"profile": "other"},
+                    )
+    assert resp.status_code == 200
+    mock_dash.assert_called_once()
+    assert mock_dash.call_args[1]["account_scope"] == "LINKED"
+
+
+def test_savings_plans_purchase_uses_payer_when_master_profile_unset(client):
+    """WHEN FINOPS_MASTER_PROFILE is unset THEN account_scope PAYER for any profile."""
+    mock_dash = MagicMock(
+        return_value={
+            "lookback_period_in_days": "THIRTY_DAYS",
+            "account_scope": "PAYER",
+            "recommendations": [],
+        }
+    )
+    with patch("finops_buddy.api.deps.list_profiles", return_value=["any"]):
+        with patch("finops_buddy.api.app.get_session"):
+            with patch(
+                "finops_buddy.api.app.get_savings_plans_purchase_recommendations_dashboard",
+                mock_dash,
+            ):
+                with patch("finops_buddy.api.app.get_master_profile", return_value=None):
+                    resp = client.get(
+                        "/costs/dashboard/savings-plans-purchase-recommendations",
+                        params={"profile": "any"},
+                    )
+    assert resp.status_code == 200
+    assert mock_dash.call_args[1]["account_scope"] == "PAYER"
 
 
 def test_get_costs_dashboard_returns_all_sections_for_profile(client):

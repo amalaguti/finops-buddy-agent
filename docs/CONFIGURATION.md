@@ -41,6 +41,10 @@
 
 A commented template lives in [`config/settings.yaml`](../config/settings.yaml) in the repository.
 
+## Costs dashboard HTTP API
+
+- **`GET /costs/dashboard/savings-plans-purchase-recommendations`** — Query parameter **`lookback_period_in_days`** (default **`THIRTY_DAYS`**): Cost Explorer allows **`SEVEN_DAYS`**, **`THIRTY_DAYS`**, or **`SIXTY_DAYS`** for this operation. Invalid values → **400 Bad Request**. Optional **`term_in_years`** (`ONE_YEAR` or `THREE_YEARS`) and **`payment_option`** (`NO_UPFRONT`, `PARTIAL_UPFRONT`, or `ALL_UPFRONT`). When **both** are set, Cost Explorer is queried only for that term × payment (across all Savings Plans types). When **both** are omitted, the full matrix is used. Passing **only one** of term/payment → **400 Bad Request**. The JSON response includes **`lookback_period_in_days`**, **`matrix_term_in_years`**, and **`matrix_payment_option`** (each matrix field `null` when the full matrix was used).
+
 ## Environment variables
 
 | Variable | Purpose |
@@ -49,7 +53,7 @@ A commented template lives in [`config/settings.yaml`](../config/settings.yaml) 
 | `FINOPS_EXCLUDED_PROFILES` | Comma-separated list of AWS profile names to exclude from `finops profiles`. Overrides `excluded_profiles` from the settings file when set. |
 | `FINOPS_INCLUDED_ONLY_PROFILES` | Comma-separated list of AWS profile names to include; only these are shown (allowlist). Overrides `included_only_profiles` from the settings file when set. When non-empty, takes precedence over excluded list. |
 | `FINOPS_MASTER_ACCOUNT_ID` | Optional. Account ID treated as Master/Payer; used by `finops context` to show master vs linked. When unset, the app derives it from `FINOPS_MASTER_PROFILE` (STS GetCallerIdentity). Set this only if you need to override the derived value. |
-| `FINOPS_MASTER_PROFILE` | **Preferred single source of truth** for the payer: AWS profile name for the Master/Payer account (e.g. payer SSO profile). Used for (1) the long-lived HTTP API chat agent session—when set, the backend builds one payer-scoped agent and reuses it for all `/chat`, `/status`, and `/tooling`; (2) deriving the Master/Payer account ID for context (master vs linked) when `FINOPS_MASTER_ACCOUNT_ID` is not set. |
+| `FINOPS_MASTER_PROFILE` | **Preferred single source of truth** for the payer: AWS profile name for the Master/Payer account (e.g. payer SSO profile). Used for (1) the long-lived HTTP API chat agent session—when set, the backend builds one payer-scoped agent and reuses it for all `/chat`, `/status`, and `/tooling`; (2) deriving the Master/Payer account ID for context (master vs linked) when `FINOPS_MASTER_ACCOUNT_ID` is not set; (3) **Savings Plans purchase recommendations** (`GET /costs/dashboard/savings-plans-purchase-recommendations`): Cost Explorer `AccountScope` is **PAYER** when the selected dashboard profile matches this value, and **LINKED** for any other profile. When unset, purchase recommendations use **PAYER** for all profiles. |
 | `FINOPS_AGENT_MODEL_ID` | Optional model ID for the chat agent. With Bedrock: Bedrock model id. With OpenAI: e.g. `gpt-4o`, `gpt-4o-mini`. Overrides `agent.model_id` from the settings file. If unset, default is Bedrock (when using AWS) or `gpt-4o` (when using OpenAI). |
 | `FINOPS_AGENT_TEMPERATURE` | OpenAI temperature (0..2). Default 0.2. Some models (e.g. gpt-5-nano) only support 1—set to `1` to avoid 400 errors. Overrides `agent.temperature` from the settings file. |
 | `FINOPS_AGENT_MAX_COMPLETION_TOKENS` | Max completion tokens per agent turn (default 8192). Increase if you see "max_tokens truncation" or unrecoverable state when the agent uses many tools in one turn. Overrides `agent.max_completion_tokens` from the settings file. |

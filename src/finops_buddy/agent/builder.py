@@ -34,7 +34,7 @@ _VERBOSE_TOOL_RESULT_MAX_CHARS = 4000
 
 
 def _tool_result_as_string(result: object) -> str | None:
-    """Extract a single string from a Strands tool result (may be dict with content list or plain str)."""
+    """Extract a string from a Strands tool result (dict with content list or plain str)."""
     if result is None:
         return None
     if isinstance(result, str):
@@ -130,7 +130,7 @@ class _ProgressCallbackHook:
 
 
 class _ChartArtifactCollectorHook:
-    """Hook that collects create_chart tool results so they can be used as artifacts even if the model omits them from the reply."""
+    """Collects create_chart results for artifacts when the model omits them from the reply."""
 
     def __init__(self, collector: list) -> None:
         self._collector = collector

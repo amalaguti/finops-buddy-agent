@@ -20,12 +20,11 @@ PDF = DOCS / "DEPLOY_AWS_ARCHITECTURE.pdf"
 
 
 def _strip_mermaid(raw: str) -> str:
-    return re.sub(
-        r"```mermaid\n.*?```\n",
-        "<p><em>(Mermaid diagram omitted in PDF; see SVG figures in this document or the Markdown source.)</em></p>\n",
-        raw,
-        flags=re.DOTALL,
+    omitted = (
+        "<p><em>(Mermaid diagram omitted in PDF; see SVG figures in this document "
+        "or the Markdown source.)</em></p>\n"
     )
+    return re.sub(r"```mermaid\n.*?```\n", omitted, raw, flags=re.DOTALL)
 
 
 def _build_html(fragment: str) -> str:

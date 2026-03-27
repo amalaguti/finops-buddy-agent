@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useProfile } from '../context/ProfileContext.jsx';
 import {
   getCostsDashboardByService,
@@ -8,6 +8,7 @@ import {
   getCostsDashboardAnomalies,
   getCostsDashboardSavingsPlans,
   getCostsDashboardCostCategories,
+  getCostsDashboardSavingsPlansPurchaseRecommendations,
   getServiceAccountsForService,
   getServicesForAccount,
 } from '../api/client.js';
@@ -24,7 +25,47 @@ const COLUMN_LABELS = {
   coverage_pct: 'Coverage %',
   pct_of_category_total: '% of category',
   value_key: 'Value',
+  savings_plans_type: 'Plan type',
+  term_in_years: 'Term',
+  payment_option: 'Payment',
+  hourly_commitment_to_purchase: '$/hr commit',
+  estimated_monthly_savings_amount: 'Est. monthly savings',
+  estimated_savings_percentage: 'Savings %',
+  estimated_roi: 'ROI %',
+  region: 'Region',
 };
+
+const SP_PURCHASE_TERM_OPTIONS = [
+  { value: 'ONE_YEAR', label: '1 year' },
+  { value: 'THREE_YEARS', label: '3 years' },
+];
+const SP_PURCHASE_PAYMENT_OPTIONS = [
+  { value: 'NO_UPFRONT', label: 'No upfront' },
+  { value: 'PARTIAL_UPFRONT', label: 'Partial upfront' },
+  { value: 'ALL_UPFRONT', label: 'All upfront' },
+];
+
+/** UI value → CE LookbackPeriodInDays (30 → THIRTY_DAYS, 60 → SIXTY_DAYS). */
+const SP_PURCHASE_LOOKBACK_UI_OPTIONS = [
+  { ui: '30', label: '30 days' },
+  { ui: '60', label: '60 days' },
+];
+
+function purchaseLookbackApiFromUi(ui) {
+  return ui === '30' ? 'THIRTY_DAYS' : 'SIXTY_DAYS';
+}
+
+/** Below this utilization or coverage % is highlighted as poor (theme-aware). */
+const SP_UTIL_COVERAGE_THRESHOLD_PCT = 85;
+
+function isSpUtilOrCoverageLow(value) {
+  const n = typeof value === 'object' && value?.Amount != null ? Number(value.Amount) : Number(value);
+  return Number.isFinite(n) && n < SP_UTIL_COVERAGE_THRESHOLD_PCT;
+}
+
+/** Tailwind classes for low Savings Plans utilization/coverage values (light + dark themes). */
+const spLowMetricClassName =
+  'rounded px-0.5 font-semibold !text-red-700 dark:!text-red-300 bg-red-100/90 dark:bg-red-950/55';
 
 function formatColumnHeader(key) {
   return COLUMN_LABELS[key] ?? key;
@@ -40,7 +81,14 @@ function isNumericColumn(key) {
     key === 'TotalActualSpend' ||
     key === 'TotalExpectedSpend' ||
     key === 'utilization' ||
-    key === 'netSavings'
+    key === 'netSavings' ||
+    key === 'hourly_commitment_to_purchase' ||
+    key === 'estimated_monthly_savings_amount' ||
+    key === 'estimated_savings_amount' ||
+    key === 'estimated_savings_percentage' ||
+    key === 'estimated_roi' ||
+    key === 'estimated_average_utilization' ||
+    key === 'estimated_sp_cost'
   );
 }
 
@@ -86,6 +134,19 @@ function formatCellValue(value, key) {
     const v = formatCostCategoryValueKey(value);
     return v === '' ? '—' : v;
   }
+  if (key === 'estimated_savings_percentage' || key === 'estimated_roi' || key === 'estimated_average_utilization') {
+    const n = Number(value);
+    return Number.isFinite(n) ? `${n.toFixed(2)}%` : '—';
+  }
+  if (
+    key === 'hourly_commitment_to_purchase' ||
+    key === 'estimated_monthly_savings_amount' ||
+    key === 'estimated_savings_amount' ||
+    key === 'estimated_sp_cost'
+  ) {
+    const n = Number(value);
+    return Number.isFinite(n) ? `$${n.toFixed(2)}` : '—';
+  }
   if (isNumericColumn(key)) {
     const n = typeof value === 'object' && value?.Amount != null ? Number(value.Amount) : Number(value);
     return Number.isFinite(n) ? n.toFixed(2) : String(value);
@@ -93,7 +154,23 @@ function formatCellValue(value, key) {
   return String(value);
 }
 
-function MiniTable({ title, rows, columns, emptyMessage, keyField, onRowClick, loading }) {
+/** @param {number | null} [maxRows] Default 10 for compact dashboard tables; pass `null` for no limit. */
+function MiniTable({
+  title,
+  rows,
+  columns,
+  emptyMessage,
+  keyField,
+  onRowClick,
+  loading,
+  maxRows = 10,
+  sortableColumns,
+  sortColumn,
+  sortDirection,
+  onSortColumn,
+  /** @param {string} col @param {object} row @returns {string | undefined} Extra td classes */
+  getCellClassName,
+}) {
   const multiColumn = Array.isArray(columns) && columns.length > 2;
   const [labelKey, valueKey] = columns;
 
@@ -129,40 +206,75 @@ function MiniTable({ title, rows, columns, emptyMessage, keyField, onRowClick, l
         <table className="min-w-full text-xs">
           <thead className="bg-finops-btn-secondary text-left">
             <tr>
-              {(multiColumn ? columns : [labelKey, valueKey]).map((col) => (
-                <th
-                  key={col}
-                  className={
-                    isNumericColumn(col)
-                      ? 'px-2 py-1.5 font-medium text-finops-text-primary text-right'
-                      : 'px-2 py-1.5 font-medium text-finops-text-primary'
-                  }
-                >
-                  {multiColumn ? formatColumnHeader(col) : col === valueKey ? (valueKey === 'cost' ? 'Cost' : 'Value') : col}
-                </th>
-              ))}
+              {(multiColumn ? columns : [labelKey, valueKey]).map((col) => {
+                const sortable = Boolean(
+                  multiColumn && sortableColumns?.includes(col) && typeof onSortColumn === 'function'
+                );
+                const headerText = multiColumn
+                  ? formatColumnHeader(col)
+                  : col === valueKey
+                    ? valueKey === 'cost'
+                      ? 'Cost'
+                      : 'Value'
+                    : col;
+                const thClass = isNumericColumn(col)
+                  ? 'px-2 py-1.5 font-medium text-finops-text-primary text-right'
+                  : 'px-2 py-1.5 font-medium text-finops-text-primary';
+                if (sortable) {
+                  const active = sortColumn === col;
+                  const numericCol = isNumericColumn(col);
+                  const indicator = active ? (sortDirection === 'asc' ? '▲' : '▼') : '';
+                  return (
+                    <th
+                      key={col}
+                      className={thClass}
+                      aria-sort={active ? (sortDirection === 'asc' ? 'ascending' : 'descending') : undefined}
+                    >
+                      <button
+                        type="button"
+                        className={`inline-flex w-full max-w-full items-center gap-1 font-medium text-finops-text-primary hover:underline ${numericCol ? 'justify-end' : 'justify-start'}`}
+                        onClick={() => onSortColumn(col)}
+                      >
+                        <span>{headerText}</span>
+                        {indicator ? (
+                          <span className="font-mono text-[10px] text-finops-text-secondary" aria-hidden>
+                            {indicator}
+                          </span>
+                        ) : null}
+                      </button>
+                    </th>
+                  );
+                }
+                return (
+                  <th key={col} className={thClass}>
+                    {headerText}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-finops-border">
-            {rows.slice(0, 10).map((r) => (
+            {(maxRows == null ? rows : rows.slice(0, maxRows)).map((r) => (
               <tr
                 key={r[keyField] ?? r[labelKey] ?? r[columns[0]] ?? Math.random()}
                 onClick={onRowClick ? () => onRowClick(r) : undefined}
                 className={onRowClick ? 'cursor-pointer hover:bg-finops-bg-page' : undefined}
               >
-                {(multiColumn ? columns : [labelKey, valueKey]).map((col) => (
-                  <td
-                    key={col}
-                    className={
-                      isNumericColumn(col)
-                        ? 'px-2 py-1.5 text-right font-mono text-finops-text-primary'
-                        : 'px-2 py-1.5 text-finops-text-primary truncate max-w-[140px]'
-                    }
-                    title={!isNumericColumn(col) ? r[col] : undefined}
-                  >
-                    {formatCellValue(r[col], col)}
-                  </td>
-                ))}
+                {(multiColumn ? columns : [labelKey, valueKey]).map((col) => {
+                  const extra = getCellClassName?.(col, r);
+                  const base = isNumericColumn(col)
+                    ? 'px-2 py-1.5 text-right font-mono text-finops-text-primary'
+                    : 'px-2 py-1.5 text-finops-text-primary truncate max-w-[140px]';
+                  return (
+                    <td
+                      key={col}
+                      className={[base, extra].filter(Boolean).join(' ')}
+                      title={!isNumericColumn(col) ? r[col] : undefined}
+                    >
+                      {formatCellValue(r[col], col)}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -263,6 +375,15 @@ export function DashboardSection() {
   const [savingsPlans, setSavingsPlans] = useState(emptySlice);
   const [costCategories, setCostCategories] = useState(emptySlice);
   const [costCategoriesExpanded, setCostCategoriesExpanded] = useState(true);
+  const [savingsPlansPurchase, setSavingsPlansPurchase] = useState(emptySlice);
+  const [savingsPlansPurchaseExpanded, setSavingsPlansPurchaseExpanded] = useState(true);
+  const [purchaseLookbackUi, setPurchaseLookbackUi] = useState('30');
+  const [purchaseTerm, setPurchaseTerm] = useState('THREE_YEARS');
+  const [purchasePayment, setPurchasePayment] = useState('ALL_UPFRONT');
+  const [purchaseSort, setPurchaseSort] = useState({
+    column: 'estimated_monthly_savings_amount',
+    direction: 'desc',
+  });
   const [selectedAnomaly, setSelectedAnomaly] = useState(null);
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
   const [showSavingsPlansDetails, setShowSavingsPlansDetails] = useState(false);
@@ -282,6 +403,7 @@ export function DashboardSection() {
       setAnomalies(emptySlice());
       setSavingsPlans(emptySlice());
       setCostCategories(emptySlice());
+      setSavingsPlansPurchase(emptySlice());
       return;
     }
     const forProfile = profile;
@@ -292,11 +414,12 @@ export function DashboardSection() {
     setAnomalies((s) => ({ ...s, loading: true, error: null }));
     setSavingsPlans((s) => ({ ...s, loading: true, error: null }));
     setCostCategories((s) => ({ ...s, loading: true, error: null }));
+    setSavingsPlansPurchase((s) => ({ ...s, loading: true, error: null }));
 
     let completed = 0;
     const maybeDone = () => {
       completed += 1;
-      if (completed === 7) markCostsLoaded(forProfile);
+      if (completed === 8) markCostsLoaded(forProfile);
     };
 
     getCostsDashboardByService(forProfile)
@@ -327,7 +450,54 @@ export function DashboardSection() {
       .then((data) => setCostCategories({ data, error: null, loading: false }))
       .catch((e) => setCostCategories({ data: null, error: e.message, loading: false }))
       .finally(maybeDone);
-  }, [profile, markCostsLoaded]);
+    getCostsDashboardSavingsPlansPurchaseRecommendations(forProfile, {
+      lookbackPeriodInDays: purchaseLookbackApiFromUi(purchaseLookbackUi),
+    })
+      .then((data) => setSavingsPlansPurchase({ data, error: null, loading: false }))
+      .catch((e) => setSavingsPlansPurchase({ data: null, error: e.message, loading: false }))
+      .finally(maybeDone);
+  }, [profile, purchaseLookbackUi, markCostsLoaded]);
+
+  const savingsPlansPurchaseRows = useMemo(() => {
+    const raw = savingsPlansPurchase.data?.recommendations ?? [];
+    const filtered = raw.filter(
+      (r) => r.term_in_years === purchaseTerm && r.payment_option === purchasePayment
+    );
+    const base = filtered.map((r, i) => ({
+      ...r,
+      __key: `${r.savings_plans_type}-${r.term_in_years}-${r.payment_option}-${r.recommendation_detail_id ?? r.account_id ?? i}`,
+    }));
+    const { column, direction } = purchaseSort;
+    const mul = direction === 'asc' ? 1 : -1;
+    return [...base].sort((a, b) => {
+      const na = Number(a[column]);
+      const nb = Number(b[column]);
+      const va = Number.isFinite(na) ? na : 0;
+      const vb = Number.isFinite(nb) ? nb : 0;
+      if (va === vb) return 0;
+      return va < vb ? -mul : mul;
+    });
+  }, [
+    savingsPlansPurchase.data?.recommendations,
+    purchaseTerm,
+    purchasePayment,
+    purchaseSort.column,
+    purchaseSort.direction,
+  ]);
+
+  const purchaseAccountScopeLabel =
+    savingsPlansPurchase.data?.account_scope === 'LINKED'
+      ? 'linked account scope'
+      : 'payer scope';
+  const purchaseMatrixServerFiltered = Boolean(savingsPlansPurchase.data?.matrix_term_in_years);
+  const handlePurchaseSortColumn = (col) => {
+    setPurchaseSort((prev) => {
+      if (prev.column !== col) {
+        return { column: col, direction: 'desc' };
+      }
+      return { column: col, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+    });
+  };
 
   if (!profile) return <p className="text-sm text-finops-text-secondary">Select a profile</p>;
 
@@ -488,11 +658,27 @@ export function DashboardSection() {
             >
               <p className="text-finops-text-primary">
                 Utilization:{' '}
-                <strong>{Number(savingsPlansSummary.utilization_percentage ?? 0).toFixed(1)}%</strong>
+                <strong
+                  className={
+                    isSpUtilOrCoverageLow(savingsPlansSummary.utilization_percentage)
+                      ? spLowMetricClassName
+                      : undefined
+                  }
+                >
+                  {Number(savingsPlansSummary.utilization_percentage ?? 0).toFixed(1)}%
+                </strong>
               </p>
               <p className="text-finops-text-primary">
                 Coverage:{' '}
-                <strong>{Number(savingsPlansSummary.coverage_percentage ?? 0).toFixed(1)}%</strong>
+                <strong
+                  className={
+                    isSpUtilOrCoverageLow(savingsPlansSummary.coverage_percentage)
+                      ? spLowMetricClassName
+                      : undefined
+                  }
+                >
+                  {Number(savingsPlansSummary.coverage_percentage ?? 0).toFixed(1)}%
+                </strong>
               </p>
               <p className="text-finops-text-secondary">
                 Last {savingsPlansSummary.period_months ?? 1} month(s)
@@ -559,6 +745,122 @@ export function DashboardSection() {
                   emptyMessage="No rows for this category"
                 />
               ))}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-finops-border pt-3">
+        <button
+          type="button"
+          onClick={() => setSavingsPlansPurchaseExpanded((e) => !e)}
+          className="flex w-full items-center justify-between gap-2 rounded text-left hover:text-finops-text-primary"
+          aria-expanded={savingsPlansPurchaseExpanded}
+          aria-label={
+            savingsPlansPurchaseExpanded
+              ? 'Collapse Savings Plans purchase recommendations'
+              : 'Expand Savings Plans purchase recommendations'
+          }
+        >
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-finops-text-secondary">
+            Savings Plans purchase recommendations
+          </h2>
+          <span
+            className={`shrink-0 text-finops-text-secondary transition-transform ${savingsPlansPurchaseExpanded ? 'rotate-180' : ''}`}
+            aria-hidden
+          >
+            ▼
+          </span>
+        </button>
+        {savingsPlansPurchaseExpanded && (
+          <div className="mt-2 space-y-2">
+            <p className="text-[11px] text-finops-text-secondary">
+              From Cost Explorer ({purchaseLookbackUi}-day lookback, {purchaseAccountScopeLabel}). The
+              full recommendation matrix for this lookback is fetched once per session and cached;
+              term and payment only filter the table without new requests.
+              {purchaseMatrixServerFiltered
+                ? ' Server returned a single term × payment slice.'
+                : ' Some CE calls may fail and still show partial results.'}
+            </p>
+            <div className="flex flex-wrap items-center gap-3 text-[11px]">
+              <label className="flex items-center gap-1.5 text-finops-text-secondary">
+                <span className="whitespace-nowrap">Lookback</span>
+                <select
+                  value={purchaseLookbackUi}
+                  onChange={(e) => setPurchaseLookbackUi(e.target.value)}
+                  className="max-w-[11rem] rounded border border-finops-border bg-finops-bg-page px-2 py-1 text-finops-text-primary"
+                >
+                  {SP_PURCHASE_LOOKBACK_UI_OPTIONS.map((o) => (
+                    <option key={o.ui} value={o.ui}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1.5 text-finops-text-secondary">
+                <span className="whitespace-nowrap">Term</span>
+                <select
+                  value={purchaseTerm}
+                  onChange={(e) => setPurchaseTerm(e.target.value)}
+                  className="max-w-[11rem] rounded border border-finops-border bg-finops-bg-page px-2 py-1 text-finops-text-primary"
+                >
+                  {SP_PURCHASE_TERM_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1.5 text-finops-text-secondary">
+                <span className="whitespace-nowrap">Payment</span>
+                <select
+                  value={purchasePayment}
+                  onChange={(e) => setPurchasePayment(e.target.value)}
+                  className="max-w-[12rem] rounded border border-finops-border bg-finops-bg-page px-2 py-1 text-finops-text-primary"
+                >
+                  {SP_PURCHASE_PAYMENT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {savingsPlansPurchase.data?.errors?.length > 0 && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                {savingsPlansPurchase.data.errors.length} parameter combination(s) returned an error
+                (see server logs for details).
+              </p>
+            )}
+            <MiniTable
+              title="Purchase recommendations"
+              rows={savingsPlansPurchase.error ? null : savingsPlansPurchaseRows}
+              maxRows={null}
+              columns={[
+                'savings_plans_type',
+                'term_in_years',
+                'payment_option',
+                'hourly_commitment_to_purchase',
+                'estimated_monthly_savings_amount',
+                'estimated_savings_percentage',
+                'estimated_roi',
+                'region',
+              ]}
+              sortableColumns={[
+                'estimated_monthly_savings_amount',
+                'estimated_savings_percentage',
+                'estimated_roi',
+              ]}
+              sortColumn={purchaseSort.column}
+              sortDirection={purchaseSort.direction}
+              onSortColumn={handlePurchaseSortColumn}
+              keyField="__key"
+              loading={savingsPlansPurchase.loading}
+              emptyMessage={
+                savingsPlansPurchase.error
+                  ? savingsPlansPurchase.error
+                  : 'No Savings Plans purchase recommendations for this period'
+              }
+            />
           </div>
         )}
       </div>
@@ -739,11 +1041,23 @@ export function DashboardSection() {
               Last {savingsPlansSummary.period_months ?? 1} month(s)
             </dd>
             <dt className="text-finops-text-secondary">Utilization</dt>
-            <dd className="font-mono text-finops-text-primary">
+            <dd
+              className={`font-mono ${
+                isSpUtilOrCoverageLow(savingsPlansSummary.utilization_percentage)
+                  ? spLowMetricClassName
+                  : 'text-finops-text-primary'
+              }`}
+            >
               {Number(savingsPlansSummary.utilization_percentage ?? 0).toFixed(2)}%
             </dd>
             <dt className="text-finops-text-secondary">Coverage</dt>
-            <dd className="font-mono text-finops-text-primary">
+            <dd
+              className={`font-mono ${
+                isSpUtilOrCoverageLow(savingsPlansSummary.coverage_percentage)
+                  ? spLowMetricClassName
+                  : 'text-finops-text-primary'
+              }`}
+            >
               {Number(savingsPlansSummary.coverage_percentage ?? 0).toFixed(2)}%
             </dd>
           </dl>
@@ -767,6 +1081,11 @@ export function DashboardSection() {
                 columns={['plan', 'utilization', 'netSavings']}
                 keyField="id"
                 emptyMessage="No plans found for this period"
+                getCellClassName={(col, row) =>
+                  col === 'utilization' && isSpUtilOrCoverageLow(row.utilization)
+                    ? spLowMetricClassName
+                    : undefined
+                }
               />
             </div>
           )}

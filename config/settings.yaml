@@ -22,7 +22,9 @@
 # Master/payer (preferred single source of truth): profile name for the payer account (e.g. payer SSO).
 # - FINOPS_MASTER_PROFILE: When set, (1) the HTTP API uses this profile for the long-lived chat agent
 #   for all /chat, /status, /tooling; (2) the Master/Payer account ID for context (master vs linked)
-#   is derived from this profile via STS if FINOPS_MASTER_ACCOUNT_ID is not set.
+#   is derived from this profile via STS if FINOPS_MASTER_ACCOUNT_ID is not set; (3) dashboard
+#   Savings Plans purchase recommendations use Cost Explorer PAYER scope when the selected profile
+#   matches this name, LINKED otherwise. When unset, purchase recommendations use PAYER for all profiles.
 # - FINOPS_MASTER_ACCOUNT_ID: Optional override. When set, used as the Master/Payer account ID for
 #   context. When unset, the app derives it from FINOPS_MASTER_PROFILE.
 # agent:

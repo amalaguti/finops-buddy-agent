@@ -76,7 +76,7 @@ def _mask_dict(
     """Mask sensitive fields in a dictionary."""
     result = {}
     for key, value in data.items():
-        if key in ("account_id", "accountId", "Account", "account"):
+        if key in ("account_id", "accountId", "Account", "account", "AccountId"):
             if isinstance(value, str) and re.match(r"^\d{12}$", value):
                 result[key] = mask_account_id(value, id_mapping)
             else:

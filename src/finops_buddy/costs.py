@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
 from decimal import Decimal
+from itertools import product
 
 import boto3
 from botocore.exceptions import ClientError
+
+logger = logging.getLogger(__name__)
 
 
 class CostExplorerError(Exception):
@@ -729,4 +733,259 @@ def get_cost_categories_dashboard(
     }
     if truncated:
         out["truncated"] = True
+    return out
+
+
+# GetSavingsPlansPurchaseRecommendation: one type/term/payment per call; full matrix covers
+# all supported SavingsPlansType values (incl. DATABASE_SP) × terms × upfront payment options.
+_SAVINGS_PLANS_PURCHASE_TYPES = (
+    "COMPUTE_SP",
+    "EC2_INSTANCE_SP",
+    "SAGEMAKER_SP",
+    "DATABASE_SP",
+)
+_TERM_IN_YEARS_SP_PURCHASE = ("ONE_YEAR", "THREE_YEARS")
+_PAYMENT_OPTIONS_SP_PURCHASE = ("NO_UPFRONT", "PARTIAL_UPFRONT", "ALL_UPFRONT")
+# Cost Explorer GetSavingsPlansPurchaseRecommendation — botocore enum (no NINETY_DAYS).
+_LOOKBACK_SP_PURCHASE_ALLOWED = ("SEVEN_DAYS", "THIRTY_DAYS", "SIXTY_DAYS")
+
+
+def _sp_purchase_float(val: object) -> float | None:
+    if val is None or val == "":
+        return None
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def _sp_purchase_detail_to_row(
+    d: dict,
+    *,
+    sp_type: str,
+    term: str,
+    payment: str,
+) -> dict:
+    svd = d.get("SavingsPlansDetails") or {}
+    return {
+        "savings_plans_type": sp_type,
+        "term_in_years": term,
+        "payment_option": payment,
+        "account_id": d.get("AccountId") or None,
+        "hourly_commitment_to_purchase": _sp_purchase_float(d.get("HourlyCommitmentToPurchase")),
+        "estimated_monthly_savings_amount": _sp_purchase_float(
+            d.get("EstimatedMonthlySavingsAmount")
+        ),
+        "estimated_savings_amount": _sp_purchase_float(d.get("EstimatedSavingsAmount")),
+        "estimated_savings_percentage": _sp_purchase_float(d.get("EstimatedSavingsPercentage")),
+        "estimated_roi": _sp_purchase_float(d.get("EstimatedROI")),
+        "estimated_average_utilization": _sp_purchase_float(d.get("EstimatedAverageUtilization")),
+        "estimated_sp_cost": _sp_purchase_float(d.get("EstimatedSPCost")),
+        "currency_code": d.get("CurrencyCode"),
+        "region": svd.get("Region"),
+        "instance_family": svd.get("InstanceFamily"),
+        "recommendation_detail_id": d.get("RecommendationDetailId"),
+    }
+
+
+def _sp_purchase_summary_has_data(summary: dict) -> bool:
+    if not summary:
+        return False
+    cnt = summary.get("TotalRecommendationCount")
+    if cnt not in (None, "", "0"):
+        return True
+    return any(
+        summary.get(k) not in (None, "")
+        for k in (
+            "HourlyCommitmentToPurchase",
+            "EstimatedMonthlySavingsAmount",
+            "EstimatedSavingsAmount",
+        )
+    )
+
+
+def _sp_purchase_summary_to_row(
+    summary: dict,
+    *,
+    sp_type: str,
+    term: str,
+    payment: str,
+) -> dict:
+    return {
+        "savings_plans_type": sp_type,
+        "term_in_years": term,
+        "payment_option": payment,
+        "account_id": None,
+        "hourly_commitment_to_purchase": _sp_purchase_float(
+            summary.get("HourlyCommitmentToPurchase")
+        ),
+        "estimated_monthly_savings_amount": _sp_purchase_float(
+            summary.get("EstimatedMonthlySavingsAmount")
+        ),
+        "estimated_savings_amount": _sp_purchase_float(summary.get("EstimatedSavingsAmount")),
+        "estimated_savings_percentage": _sp_purchase_float(
+            summary.get("EstimatedSavingsPercentage")
+        ),
+        "estimated_roi": _sp_purchase_float(summary.get("EstimatedROI")),
+        "estimated_average_utilization": None,
+        "estimated_sp_cost": _sp_purchase_float(summary.get("EstimatedTotalCost")),
+        "currency_code": summary.get("CurrencyCode"),
+        "region": None,
+        "instance_family": None,
+        "recommendation_detail_id": None,
+        "aggregate_summary": True,
+    }
+
+
+def _fetch_savings_plans_purchase_one_cell(
+    ce,
+    *,
+    sp_type: str,
+    term: str,
+    payment: str,
+    account_scope: str,
+    lookback_period_in_days: str,
+) -> list[dict]:
+    """Paginated GetSavingsPlansPurchaseRecommendation for one (type, term, payment)."""
+    rows_out: list[dict] = []
+    token = None
+    while True:
+        kwargs: dict = {
+            "SavingsPlansType": sp_type,
+            "TermInYears": term,
+            "PaymentOption": payment,
+            "LookbackPeriodInDays": lookback_period_in_days,
+            "AccountScope": account_scope,
+        }
+        if token:
+            kwargs["NextPageToken"] = token
+        resp = ce.get_savings_plans_purchase_recommendation(**kwargs)
+        spr = resp.get("SavingsPlansPurchaseRecommendation") or {}
+        details = spr.get("SavingsPlansPurchaseRecommendationDetails") or []
+        summary = spr.get("SavingsPlansPurchaseRecommendationSummary") or {}
+        if details:
+            for d in details:
+                rows_out.append(
+                    _sp_purchase_detail_to_row(d, sp_type=sp_type, term=term, payment=payment)
+                )
+        elif _sp_purchase_summary_has_data(summary):
+            rows_out.append(
+                _sp_purchase_summary_to_row(summary, sp_type=sp_type, term=term, payment=payment)
+            )
+        token = resp.get("NextPageToken")
+        if not token:
+            break
+    return rows_out
+
+
+def get_savings_plans_purchase_recommendations_dashboard(
+    session: boto3.Session,
+    *,
+    account_scope: str = "PAYER",
+    lookback_period_in_days: str = "THIRTY_DAYS",
+    term_in_years: str | None = None,
+    payment_option: str | None = None,
+) -> dict:
+    """
+    Call GetSavingsPlansPurchaseRecommendation for the parameter matrix (no region Filter;
+    AccountScope from ``account_scope`` — use PAYER for payer-wide or LINKED for the current
+    account).
+
+    ``lookback_period_in_days`` must be one of ``_LOOKBACK_SP_PURCHASE_ALLOWED`` (AWS documents
+    SEVEN_DAYS, THIRTY_DAYS, SIXTY_DAYS for this API).
+
+    When ``term_in_years`` and ``payment_option`` are both set, only that term × payment is
+    combined with all ``SavingsPlansType`` values (4 API calls). When both are omitted, the full
+    matrix is used (all terms × all payments × all types). If only one of the two is set,
+    raises ``ValueError``.
+
+    Merges rows from all cells; records per-cell errors without failing the whole request unless
+    every cell is access-denied.
+
+    Raises CostExplorerError if all matrix calls fail with access denied and no rows were built.
+    """
+    if lookback_period_in_days not in _LOOKBACK_SP_PURCHASE_ALLOWED:
+        raise ValueError(
+            f"Invalid lookback_period_in_days {lookback_period_in_days!r}; "
+            f"expected one of {_LOOKBACK_SP_PURCHASE_ALLOWED}"
+        )
+    if (term_in_years is None) ^ (payment_option is None):
+        raise ValueError("term_in_years and payment_option must both be set or both omitted")
+    if term_in_years is not None:
+        if term_in_years not in _TERM_IN_YEARS_SP_PURCHASE:
+            raise ValueError(
+                f"Invalid term_in_years {term_in_years!r}; "
+                f"expected one of {_TERM_IN_YEARS_SP_PURCHASE}"
+            )
+        if payment_option not in _PAYMENT_OPTIONS_SP_PURCHASE:
+            raise ValueError(
+                f"Invalid payment_option {payment_option!r}; "
+                f"expected one of {_PAYMENT_OPTIONS_SP_PURCHASE}"
+            )
+        terms_iter: tuple[str, ...] = (term_in_years,)
+        payments_iter: tuple[str, ...] = (payment_option,)
+    else:
+        terms_iter = _TERM_IN_YEARS_SP_PURCHASE
+        payments_iter = _PAYMENT_OPTIONS_SP_PURCHASE
+
+    ce = session.client("ce")
+    recommendations: list[dict] = []
+    errors: list[dict] = []
+    access_denied_cells = 0
+    matrix_cells = 0
+
+    for sp_type, term, payment in product(
+        _SAVINGS_PLANS_PURCHASE_TYPES,
+        terms_iter,
+        payments_iter,
+    ):
+        matrix_cells += 1
+        try:
+            recommendations.extend(
+                _fetch_savings_plans_purchase_one_cell(
+                    ce,
+                    sp_type=sp_type,
+                    term=term,
+                    payment=payment,
+                    account_scope=account_scope,
+                    lookback_period_in_days=lookback_period_in_days,
+                )
+            )
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            msg = e.response.get("Error", {}).get("Message", str(e))
+            if code == "AccessDeniedException":
+                access_denied_cells += 1
+            errors.append(
+                {
+                    "savings_plans_type": sp_type,
+                    "term_in_years": term,
+                    "payment_option": payment,
+                    "error_code": code,
+                    "message": msg,
+                }
+            )
+            logger.debug(
+                "GetSavingsPlansPurchaseRecommendation failed for %s/%s/%s: %s",
+                sp_type,
+                term,
+                payment,
+                code,
+            )
+
+    if not recommendations and access_denied_cells == matrix_cells and matrix_cells > 0:
+        raise CostExplorerError(
+            "Access denied to Cost Explorer (GetSavingsPlansPurchaseRecommendation). "
+            "Ensure your credentials have ce:GetSavingsPlansPurchaseRecommendation."
+        )
+
+    out: dict = {
+        "lookback_period_in_days": lookback_period_in_days,
+        "account_scope": account_scope,
+        "matrix_term_in_years": term_in_years,
+        "matrix_payment_option": payment_option,
+        "recommendations": recommendations,
+    }
+    if errors:
+        out["errors"] = errors
     return out

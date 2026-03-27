@@ -31,12 +31,9 @@ def test_build_agent_and_tools_emits_mcp_loading_progress_and_logs(caplog, monke
     monkeypatch.setattr(
         chat_mod,
         "build_agent",
-        lambda session,
-        profile_name,
-        tools,
-        progress_callback=None,
-        chart_artifact_collector=None,
-        file_export_artifact_collector=None: object(),
+        lambda session, profile_name, tools, progress_callback=None, chart_artifact_collector=None, file_export_artifact_collector=None: (
+            object()
+        ),
     )
 
     events: list[tuple[str, str]] = []
