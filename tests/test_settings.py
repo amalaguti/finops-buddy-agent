@@ -9,7 +9,6 @@ from finops_buddy.settings import (
     DEFAULT_BILLING_MCP_PACKAGE,
     DEFAULT_CORE_MCP_PACKAGE,
     DEFAULT_CORE_MCP_ROLES,
-    DEFAULT_COST_EXPLORER_MCP_PACKAGE,
     DEFAULT_DOCUMENTATION_MCP_PACKAGE,
     DEFAULT_KNOWLEDGE_MCP_URL,
     DEFAULT_PRICING_MCP_PACKAGE,
@@ -22,7 +21,6 @@ from finops_buddy.settings import (
     get_core_mcp_command,
     get_core_mcp_enabled,
     get_core_mcp_roles,
-    get_cost_explorer_mcp_command,
     get_cost_explorer_mcp_enabled,
     get_documentation_mcp_command,
     get_documentation_mcp_enabled,
@@ -405,7 +403,7 @@ def test_reset_settings_cache_clears_documentation_mcp_cache(monkeypatch):
     assert get_documentation_mcp_enabled() is False
 
 
-# --- Cost Explorer MCP (disabled by default) ---
+# --- Cost Explorer MCP (deprecated; always disabled) ---
 
 
 def test_get_cost_explorer_mcp_enabled_default_false(tmp_path, monkeypatch):
@@ -415,55 +413,58 @@ def test_get_cost_explorer_mcp_enabled_default_false(tmp_path, monkeypatch):
     assert get_cost_explorer_mcp_enabled() is False
 
 
-def test_get_cost_explorer_mcp_enabled_true_when_env_set(monkeypatch):
-    """When FINOPS_MCP_COST_EXPLORER_ENABLED is true, getter returns True."""
+def test_get_cost_explorer_mcp_enabled_stays_false_when_env_requests_enable(monkeypatch, caplog):
+    """Legacy FINOPS_MCP_COST_EXPLORER_ENABLED=true is ignored; logs deprecation warning."""
+    import logging
+
     monkeypatch.setenv("FINOPS_MCP_COST_EXPLORER_ENABLED", "true")
-    assert get_cost_explorer_mcp_enabled() is True
+    with caplog.at_level(logging.WARNING):
+        assert get_cost_explorer_mcp_enabled() is False
+    assert any(
+        "Cost Explorer MCP" in r.message and "deprecated" in r.message for r in caplog.records
+    )
 
 
-def test_get_cost_explorer_mcp_enabled_from_yaml(tmp_path, monkeypatch):
-    """When agent.cost_explorer_mcp_enabled is true in YAML, getter returns True."""
+def test_get_cost_explorer_mcp_enabled_stays_false_when_yaml_requests_enable(
+    tmp_path, monkeypatch, caplog
+):
+    """Legacy agent.cost_explorer_mcp_enabled in YAML is ignored; logs deprecation warning."""
+    import logging
+
     monkeypatch.setenv("FINOPS_CONFIG_FILE", str(tmp_path / "settings.yaml"))
     monkeypatch.delenv("FINOPS_MCP_COST_EXPLORER_ENABLED", raising=False)
     (tmp_path / "settings.yaml").write_text("agent:\n  cost_explorer_mcp_enabled: true\n")
-    assert get_cost_explorer_mcp_enabled() is True
+    with caplog.at_level(logging.WARNING):
+        assert get_cost_explorer_mcp_enabled() is False
+    assert any("Cost Explorer MCP" in r.message for r in caplog.records)
 
 
-def test_get_cost_explorer_mcp_enabled_env_overrides_yaml(tmp_path, monkeypatch):
-    """When YAML has cost_explorer_mcp_enabled true and env false, getter returns False."""
-    monkeypatch.setenv("FINOPS_CONFIG_FILE", str(tmp_path / "settings.yaml"))
-    (tmp_path / "settings.yaml").write_text("agent:\n  cost_explorer_mcp_enabled: true\n")
-    monkeypatch.setenv("FINOPS_MCP_COST_EXPLORER_ENABLED", "false")
-    assert get_cost_explorer_mcp_enabled() is False
+def test_get_cost_explorer_mcp_enabled_no_warning_when_not_configured(
+    tmp_path, monkeypatch, caplog
+):
+    """When Cost Explorer MCP is not configured, no deprecation warning is logged."""
+    import logging
 
-
-def test_get_cost_explorer_mcp_command_default_returns_uvx_and_args(tmp_path, monkeypatch):
-    """When no override, get_cost_explorer_mcp_command returns (uvx, [package]) or Windows."""
     monkeypatch.setenv("FINOPS_CONFIG_FILE", str(tmp_path / "missing.yaml"))
+    monkeypatch.delenv("FINOPS_MCP_COST_EXPLORER_ENABLED", raising=False)
     monkeypatch.delenv("FINOPS_MCP_COST_EXPLORER_COMMAND", raising=False)
-    cmd, args = get_cost_explorer_mcp_command()
-    assert cmd == "uvx"
-    assert DEFAULT_COST_EXPLORER_MCP_PACKAGE in args
+    with caplog.at_level(logging.WARNING):
+        assert get_cost_explorer_mcp_enabled() is False
+    assert not any("Cost Explorer MCP" in r.message for r in caplog.records)
 
 
-def test_get_cost_explorer_mcp_command_override_from_env(monkeypatch):
-    """When FINOPS_MCP_COST_EXPLORER_COMMAND is set, getter returns parsed command."""
-    monkeypatch.setenv(
-        "FINOPS_MCP_COST_EXPLORER_COMMAND",
-        "uvx awslabs.cost-explorer-mcp-server@latest",
-    )
-    cmd, args = get_cost_explorer_mcp_command()
-    assert cmd == "uvx"
-    assert "awslabs.cost-explorer-mcp-server@latest" in args
+def test_reset_settings_cache_clears_cost_explorer_mcp_cache(monkeypatch, caplog):
+    """reset_settings_cache() clears Cost Explorer MCP caches so warning can re-log."""
+    import logging
 
-
-def test_reset_settings_cache_clears_cost_explorer_mcp_cache(monkeypatch):
-    """reset_settings_cache() clears Cost Explorer MCP caches so next call re-reads."""
     monkeypatch.setenv("FINOPS_MCP_COST_EXPLORER_ENABLED", "true")
-    get_cost_explorer_mcp_enabled()
+    with caplog.at_level(logging.WARNING):
+        get_cost_explorer_mcp_enabled()
     reset_settings_cache()
-    monkeypatch.setenv("FINOPS_MCP_COST_EXPLORER_ENABLED", "false")
-    assert get_cost_explorer_mcp_enabled() is False
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        assert get_cost_explorer_mcp_enabled() is False
+    assert any("Cost Explorer MCP" in r.message for r in caplog.records)
 
 
 # --- Pricing MCP (disabled by default) ---

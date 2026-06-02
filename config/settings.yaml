@@ -66,15 +66,6 @@
 #   documentation_mcp_enabled: false
 #   documentation_mcp_command: "uvx awslabs.aws-documentation-mcp-server@latest"
 #
-# AWS Cost Explorer MCP Server (local via uvx): optional, disabled by default
-# BCM MCP server already covers Cost Explorer–style functionality; enable this for the dedicated Cost Explorer API if needed.
-# - FINOPS_MCP_COST_EXPLORER_ENABLED: true/false (default false)
-# - FINOPS_MCP_COST_EXPLORER_COMMAND: optional full command line (e.g. "uvx awslabs.cost-explorer-mcp-server@latest")
-#   Requires uv installed.
-# agent:
-#   cost_explorer_mcp_enabled: false
-#   cost_explorer_mcp_command: "uvx awslabs.cost-explorer-mcp-server@latest"
-#
 # AWS Pricing MCP Server (local via uvx): optional, disabled by default
 # Provides real-time AWS Pricing API access (service catalog, pricing queries, cost reports, project scan).
 # Requires IAM pricing:* when enabled.

@@ -211,91 +211,72 @@ def test_status_shows_documentation_mcp_when_enabled(capsys):
     assert "AWS Documentation MCP Server" in out
 
 
-def test_tooling_shows_cost_explorer_mcp_when_enabled(capsys):
-    """When Cost Explorer MCP is enabled and user enters /tooling, CLI shows server and tools."""
+def test_tooling_does_not_show_cost_explorer_mcp_when_legacy_enabled(capsys):
+    """Legacy Cost Explorer MCP enable flag does not attach server to /tooling output."""
     from finops_buddy.agent.runner import run_chat_loop
 
     mock_session = MagicMock()
     mock_session.client.return_value.get_caller_identity.return_value = {"Account": "111111111111"}
-    ce_mcp = MagicMock()
-    ce_mcp._finops_mcp_server_name = "AWS Cost Explorer MCP Server"
-    ce_mcp.list_tools_sync.return_value = [
-        {"name": "get_cost_and_usage", "description": "Get cost and usage"},
-        {"name": "get_cost_forecast", "description": "Get cost forecast"},
-    ]
     mock_agent = MagicMock()
     mock_agent.tool_names = []
 
     with patch("finops_buddy.identity.get_session", return_value=mock_session):
         with patch("finops_buddy.agent.chat_loop.build_agent", return_value=mock_agent):
             with patch(
-                "finops_buddy.agent.mcp.get_cost_explorer_mcp_enabled",
-                return_value=True,
+                "finops_buddy.settings.get_cost_explorer_mcp_enabled",
+                return_value=False,
             ):
                 with patch(
-                    "finops_buddy.agent.chat_loop.create_cost_explorer_mcp_client",
-                    return_value=ce_mcp,
+                    "finops_buddy.agent.mcp.get_knowledge_mcp_enabled",
+                    return_value=False,
                 ):
                     with patch(
-                        "finops_buddy.agent.mcp.get_knowledge_mcp_enabled",
+                        "finops_buddy.agent.mcp.get_billing_mcp_enabled",
                         return_value=False,
                     ):
                         with patch(
-                            "finops_buddy.agent.mcp.get_billing_mcp_enabled",
+                            "finops_buddy.agent.mcp.get_documentation_mcp_enabled",
                             return_value=False,
                         ):
-                            with patch(
-                                "finops_buddy.agent.mcp.get_documentation_mcp_enabled",
-                                return_value=False,
-                            ):
-                                with patch("builtins.input", side_effect=["/tooling", "/quit"]):
-                                    run_chat_loop(profile_name=None)
+                            with patch("builtins.input", side_effect=["/tooling", "/quit"]):
+                                run_chat_loop(profile_name=None)
 
     out = capsys.readouterr().out
-    assert "AWS Cost Explorer MCP Server" in out
-    assert "get_cost_and_usage" in out or "get_cost_forecast" in out
+    assert "AWS Cost Explorer MCP Server" not in out
 
 
-def test_status_shows_cost_explorer_mcp_when_enabled(capsys):
-    """When Cost Explorer MCP is enabled and user enters /status, CLI includes it in status."""
+def test_status_does_not_show_cost_explorer_mcp_when_legacy_enabled(capsys):
+    """Legacy Cost Explorer MCP enable flag does not attach server to /status output."""
     from finops_buddy.agent.runner import run_chat_loop
 
     mock_session = MagicMock()
     mock_session.client.return_value.get_caller_identity.return_value = {"Account": "111111111111"}
-    ce_mcp = MagicMock()
-    ce_mcp._finops_mcp_server_name = "AWS Cost Explorer MCP Server"
-    ce_mcp.list_tools_sync.return_value = [{"name": "get_cost_and_usage"}]
     mock_agent = MagicMock()
     mock_agent.tool_names = []
 
     with patch("finops_buddy.identity.get_session", return_value=mock_session):
         with patch("finops_buddy.agent.chat_loop.build_agent", return_value=mock_agent):
             with patch(
-                "finops_buddy.agent.mcp.get_cost_explorer_mcp_enabled",
-                return_value=True,
+                "finops_buddy.settings.get_cost_explorer_mcp_enabled",
+                return_value=False,
             ):
                 with patch(
-                    "finops_buddy.agent.chat_loop.create_cost_explorer_mcp_client",
-                    return_value=ce_mcp,
+                    "finops_buddy.agent.mcp.get_knowledge_mcp_enabled",
+                    return_value=False,
                 ):
                     with patch(
-                        "finops_buddy.agent.mcp.get_knowledge_mcp_enabled",
+                        "finops_buddy.agent.mcp.get_billing_mcp_enabled",
                         return_value=False,
                     ):
                         with patch(
-                            "finops_buddy.agent.mcp.get_billing_mcp_enabled",
+                            "finops_buddy.agent.mcp.get_documentation_mcp_enabled",
                             return_value=False,
                         ):
-                            with patch(
-                                "finops_buddy.agent.mcp.get_documentation_mcp_enabled",
-                                return_value=False,
-                            ):
-                                with patch("builtins.input", side_effect=["/status", "/quit"]):
-                                    run_chat_loop(profile_name=None)
+                            with patch("builtins.input", side_effect=["/status", "/quit"]):
+                                run_chat_loop(profile_name=None)
 
     out = capsys.readouterr().out
-    assert "MCP server status" in out
-    assert "AWS Cost Explorer MCP Server" in out
+    assert "AWS Cost Explorer MCP Server" not in out
 
 
 def test_tooling_shows_pricing_mcp_when_enabled(capsys):
@@ -336,14 +317,10 @@ def test_tooling_shows_pricing_mcp_when_enabled(capsys):
                                 return_value=False,
                             ):
                                 with patch(
-                                    "finops_buddy.agent.mcp.get_cost_explorer_mcp_enabled",
-                                    return_value=False,
+                                    "builtins.input",
+                                    side_effect=["/tooling", "/quit"],
                                 ):
-                                    with patch(
-                                        "builtins.input",
-                                        side_effect=["/tooling", "/quit"],
-                                    ):
-                                        run_chat_loop(profile_name=None)
+                                    run_chat_loop(profile_name=None)
 
     out = capsys.readouterr().out
     assert "AWS Pricing MCP Server" in out
@@ -385,14 +362,10 @@ def test_status_shows_pricing_mcp_when_enabled(capsys):
                                 return_value=False,
                             ):
                                 with patch(
-                                    "finops_buddy.agent.mcp.get_cost_explorer_mcp_enabled",
-                                    return_value=False,
+                                    "builtins.input",
+                                    side_effect=["/status", "/quit"],
                                 ):
-                                    with patch(
-                                        "builtins.input",
-                                        side_effect=["/status", "/quit"],
-                                    ):
-                                        run_chat_loop(profile_name=None)
+                                    run_chat_loop(profile_name=None)
 
     out = capsys.readouterr().out
     assert "MCP server status" in out

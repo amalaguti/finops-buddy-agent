@@ -16,7 +16,6 @@ from finops_buddy.agent.chat_loop import _build_chat_system_prompt
 from finops_buddy.agent.mcp import (
     create_billing_mcp_client,
     create_core_mcp_client,
-    create_cost_explorer_mcp_client,
     create_documentation_mcp_client,
     create_knowledge_mcp_client,
     create_pricing_mcp_client,
@@ -30,7 +29,7 @@ from finops_buddy.identity import (
     get_session,
     list_profiles,
 )
-from finops_buddy.settings import get_demo_account_mapping
+from finops_buddy.settings import get_cost_explorer_mcp_enabled, get_demo_account_mapping
 
 from .demo import get_demo_system_prompt_addition
 
@@ -266,6 +265,7 @@ def build_agent_and_tools(
         profile_name,
     )
     session = get_session(profile_name=profile_name)
+    get_cost_explorer_mcp_enabled()  # legacy config: logs deprecation warning if present
 
     def _emit_mcp_progress(message: str) -> None:
         if callable(progress_callback) and message:
@@ -289,9 +289,6 @@ def build_agent_and_tools(
 
     core_client = _load_mcp("Core", lambda: create_core_mcp_client(session))
     billing_client = _load_mcp("Billing", lambda: create_billing_mcp_client(session))
-    cost_explorer_client = _load_mcp(
-        "Cost Explorer", lambda: create_cost_explorer_mcp_client(session)
-    )
     pricing_client = _load_mcp("Pricing", lambda: create_pricing_mcp_client(session))
 
     include_cost_tools = billing_client is None
@@ -310,8 +307,6 @@ def build_agent_and_tools(
     )
     if documentation_client is not None:
         tools.append(documentation_client)
-    if cost_explorer_client is not None:
-        tools.append(cost_explorer_client)
     if pricing_client is not None:
         tools.append(pricing_client)
     if core_client is not None:

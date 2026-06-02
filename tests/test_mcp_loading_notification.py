@@ -17,7 +17,6 @@ def test_build_agent_and_tools_emits_mcp_loading_progress_and_logs(caplog, monke
     monkeypatch.setattr(chat_mod, "get_session", fake_session)
     monkeypatch.setattr(chat_mod, "create_core_mcp_client", fake_client)
     monkeypatch.setattr(chat_mod, "create_billing_mcp_client", fake_client)
-    monkeypatch.setattr(chat_mod, "create_cost_explorer_mcp_client", fake_client)
     monkeypatch.setattr(chat_mod, "create_pricing_mcp_client", fake_client)
     monkeypatch.setattr(chat_mod, "create_knowledge_mcp_client", fake_client)
     monkeypatch.setattr(chat_mod, "create_documentation_mcp_client", fake_client)

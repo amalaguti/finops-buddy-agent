@@ -2,53 +2,20 @@
 
 ## Purpose
 
-Defines integration of the AWS Cost Explorer MCP Server (awslabs.cost-explorer-mcp-server) with the chat agent: when enabled, the agent can use Cost Explorer–specific tools (e.g. get_cost_and_usage, get_cost_forecast). The server is optional and **disabled by default**; the BCM MCP server already covers Cost Explorer–style use cases. Enable via settings or environment for users who want the dedicated Cost Explorer MCP. The CLI exposes the server and its tools in `/tooling` and shows status in `/status`.
+Documents legacy Cost Explorer MCP settings and their deprecation. The standalone AWS Cost Explorer MCP Server (`awslabs.cost-explorer-mcp-server`) PyPI package is **deprecated and yanked**; FinOps Buddy **does not attach** this server. Use the **Billing and Cost Management MCP Server** (`FINOPS_MCP_BILLING_ENABLED`) or Core MCP with the `finops` role for Cost Explorer functionality. See the [AWS migration guide](https://github.com/awslabs/mcp/blob/main/docs/migration-cost-explorer.md).
 
 ## Requirements
 
-### Requirement: AWS Cost Explorer MCP Server attachment
+### Requirement: Cost Explorer MCP settings are deprecated
 
-The system SHALL support attaching the AWS Cost Explorer MCP Server to the chat agent when enabled. The server SHALL be run as a local stdio subprocess (e.g. via uvx). When enabled, the agent SHALL have access to the server's tools (e.g. get_cost_and_usage, get_cost_forecast). When disabled (default), the agent SHALL NOT start or use the Cost Explorer MCP server.
+The system SHALL NOT attach the AWS Cost Explorer MCP Server. Legacy settings (`FINOPS_MCP_COST_EXPLORER_ENABLED`, `FINOPS_MCP_COST_EXPLORER_COMMAND`, and YAML equivalents) MAY still be present in user config but SHALL be ignored for agent attachment. When enable is requested (env or YAML truthy), the system SHALL log a warning that names the Billing MCP replacement and links to the AWS migration guide.
 
-#### Scenario: Cost Explorer MCP client included when enabled
+#### Scenario: Enable request logs deprecation warning and does not attach
 
-- **WHEN** the Cost Explorer MCP server is enabled (via settings or `FINOPS_MCP_COST_EXPLORER_ENABLED`)
-- **THEN** the agent is built with a Cost Explorer MCP client in its tools and can invoke that server's tools during the session
+- **WHEN** `FINOPS_MCP_COST_EXPLORER_ENABLED` is set to a truthy value
+- **THEN** the agent is built without a Cost Explorer MCP client and a warning is logged directing the user to Billing MCP
 
-#### Scenario: Cost Explorer MCP client omitted when disabled
+#### Scenario: Default behavior unchanged
 
-- **WHEN** the Cost Explorer MCP server is disabled (default or explicitly false)
-- **THEN** the agent is built without the Cost Explorer MCP client and does not start the Cost Explorer MCP subprocess
-
-### Requirement: Cost Explorer MCP configuration
-
-The system SHALL support optional configuration for the AWS Cost Explorer MCP Server. Configuration SHALL be loadable from the application settings file (e.g. `config/settings.yaml`) and SHALL be overridable by environment variables. All new environment variables SHALL use the `FINOPS_` prefix. At least the following SHALL be supported: an enable/disable flag (default **disabled**) and an optional command override (e.g. `FINOPS_MCP_COST_EXPLORER_COMMAND`) to run the server (command and args).
-
-#### Scenario: Cost Explorer MCP disabled by default
-
-- **WHEN** no settings and no `FINOPS_MCP_COST_EXPLORER_ENABLED` are set
-- **THEN** the Cost Explorer MCP server is disabled and not attached to the agent
-
-#### Scenario: Cost Explorer MCP enabled via environment
-
-- **WHEN** `FINOPS_MCP_COST_EXPLORER_ENABLED` is set to a truthy value (e.g. true, 1)
-- **THEN** the Cost Explorer MCP server is enabled and attached to the agent when the chat session starts
-
-#### Scenario: Cost Explorer MCP command override
-
-- **WHEN** `FINOPS_MCP_COST_EXPLORER_COMMAND` (or equivalent setting) is set to a valid command string (e.g. `uvx awslabs.cost-explorer-mcp-server@latest`)
-- **THEN** the system uses that command (and args) to start the Cost Explorer MCP server instead of the default uvx command
-
-### Requirement: Cost Explorer MCP visibility in /tooling and /status
-
-When the AWS Cost Explorer MCP Server is enabled and attached to the agent, the CLI SHALL list it by a stable display name (e.g. "AWS Cost Explorer MCP Server") in the output of `/tooling`, along with the list of tools provided by that server. The CLI SHALL include the Cost Explorer MCP server in the MCP server status output shown for `/status` (e.g. readiness), consistent with other MCP servers.
-
-#### Scenario: /tooling lists Cost Explorer MCP server and its tools
-
-- **WHEN** the user runs `/tooling` and the Cost Explorer MCP server is enabled and attached
-- **THEN** the CLI output includes a section for the AWS Cost Explorer MCP Server and lists the tools it provides (e.g. get_cost_and_usage, get_cost_forecast)
-
-#### Scenario: /status shows Cost Explorer MCP server status
-
-- **WHEN** the user runs `/status` and the Cost Explorer MCP server is enabled and attached
-- **THEN** the CLI output includes the AWS Cost Explorer MCP Server in the MCP server status section (e.g. ready or not ready)
+- **WHEN** Cost Explorer MCP is not enabled in config
+- **THEN** no Cost Explorer MCP client is attached and no deprecation warning is logged

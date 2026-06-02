@@ -23,7 +23,7 @@ _BILLING_MCP_COMMAND_CACHE: tuple[str, list[str]] | None = None
 _DOCUMENTATION_MCP_ENABLED_CACHE: bool | None = None
 _DOCUMENTATION_MCP_COMMAND_CACHE: tuple[str, list[str]] | None = None
 _COST_EXPLORER_MCP_ENABLED_CACHE: bool | None = None
-_COST_EXPLORER_MCP_COMMAND_CACHE: tuple[str, list[str]] | None = None
+_COST_EXPLORER_MCP_DEPRECATION_LOGGED: bool = False
 _PRICING_MCP_ENABLED_CACHE: bool | None = None
 _PRICING_MCP_COMMAND_CACHE: tuple[str, list[str]] | None = None
 _CORE_MCP_ENABLED_CACHE: bool | None = None
@@ -54,8 +54,10 @@ DEFAULT_BILLING_MCP_PACKAGE = "awslabs.billing-cost-management-mcp-server@latest
 # Default uvx package for AWS Documentation MCP server (stdio)
 DEFAULT_DOCUMENTATION_MCP_PACKAGE = "awslabs.aws-documentation-mcp-server@latest"
 
-# Default uvx package for AWS Cost Explorer MCP server (stdio); disabled by default
-DEFAULT_COST_EXPLORER_MCP_PACKAGE = "awslabs.cost-explorer-mcp-server@latest"
+# Cost Explorer MCP server was deprecated and yanked on PyPI; use Billing MCP instead.
+_COST_EXPLORER_MCP_MIGRATION_URL = (
+    "https://github.com/awslabs/mcp/blob/main/docs/migration-cost-explorer.md"
+)
 
 # Default uvx package for AWS Pricing MCP server (stdio); disabled by default
 DEFAULT_PRICING_MCP_PACKAGE = "awslabs.aws-pricing-mcp-server@latest"
@@ -750,80 +752,66 @@ def _env_cost_explorer_mcp_enabled() -> bool | None:
 
 
 def _env_cost_explorer_mcp_command() -> str | None:
-    """Return FINOPS_MCP_COST_EXPLORER_COMMAND if set, else None (use default uvx command)."""
+    """Return FINOPS_MCP_COST_EXPLORER_COMMAND if set, else None."""
     val = os.environ.get("FINOPS_MCP_COST_EXPLORER_COMMAND")
     return val.strip() if val and isinstance(val, str) else None
 
 
-def _parse_cost_explorer_mcp_command(cmd_str: str) -> tuple[str, list[str]]:
-    """Parse command string into (command, args). Uses shlex.split for robustness."""
-    import shlex
-
-    parts = shlex.split(cmd_str.strip())
-    if not parts:
-        return ("uvx", [DEFAULT_COST_EXPLORER_MCP_PACKAGE])
-    return (parts[0], parts[1:])
-
-
-def get_cost_explorer_mcp_enabled() -> bool:
-    """
-    Return whether the AWS Cost Explorer MCP server is enabled.
-    FINOPS_MCP_COST_EXPLORER_ENABLED overrides file; else agent.cost_explorer_mcp_enabled
-    from YAML; else False (disabled by default; BCM MCP covers Cost Explorer).
-    """
-    global _COST_EXPLORER_MCP_ENABLED_CACHE
-    if _COST_EXPLORER_MCP_ENABLED_CACHE is not None:
-        return _COST_EXPLORER_MCP_ENABLED_CACHE
+def _cost_explorer_mcp_enable_requested() -> bool:
+    """Return True when legacy Cost Explorer MCP enable flag is truthy in env or YAML."""
     env_val = _env_cost_explorer_mcp_enabled()
     if env_val is not None:
-        _COST_EXPLORER_MCP_ENABLED_CACHE = env_val
         return env_val
     path = _get_config_path()
     agent = _load_yaml_agent(path)
     if agent is not None:
         v = agent.get("cost_explorer_mcp_enabled")
         if v is not None:
-            _COST_EXPLORER_MCP_ENABLED_CACHE = (
+            return (
                 bool(v) if isinstance(v, bool) else str(v).strip().lower() in ("1", "true", "yes")
             )
-            return _COST_EXPLORER_MCP_ENABLED_CACHE
-    _COST_EXPLORER_MCP_ENABLED_CACHE = False
     return False
 
 
-def get_cost_explorer_mcp_command() -> tuple[str, list[str]]:
-    """
-    Return (command, args) to run the Cost Explorer MCP server (e.g. uvx).
-    FINOPS_MCP_COST_EXPLORER_COMMAND overrides (parsed with shlex); else
-    agent.cost_explorer_mcp_command from YAML; else default uvx with platform-specific args.
-    """
-    global _COST_EXPLORER_MCP_COMMAND_CACHE
-    if _COST_EXPLORER_MCP_COMMAND_CACHE is not None:
-        return _COST_EXPLORER_MCP_COMMAND_CACHE
-    env_val = _env_cost_explorer_mcp_command()
-    if env_val:
-        _COST_EXPLORER_MCP_COMMAND_CACHE = _parse_cost_explorer_mcp_command(env_val)
-        return _COST_EXPLORER_MCP_COMMAND_CACHE
+def _cost_explorer_mcp_command_configured() -> bool:
+    """Return True when legacy Cost Explorer MCP command is set in env or YAML."""
+    if _env_cost_explorer_mcp_command():
+        return True
     path = _get_config_path()
     agent = _load_yaml_agent(path)
     if agent is not None:
         v = agent.get("cost_explorer_mcp_command")
-        if v and isinstance(v, str) and v.strip():
-            _COST_EXPLORER_MCP_COMMAND_CACHE = _parse_cost_explorer_mcp_command(v)
-            return _COST_EXPLORER_MCP_COMMAND_CACHE
-    # Default: uvx with platform-specific args (Windows uses --from and .exe)
-    if sys.platform == "win32":
-        _COST_EXPLORER_MCP_COMMAND_CACHE = (
-            "uvx",
-            [
-                "--from",
-                DEFAULT_COST_EXPLORER_MCP_PACKAGE,
-                "awslabs.cost-explorer-mcp-server.exe",
-            ],
-        )
-    else:
-        _COST_EXPLORER_MCP_COMMAND_CACHE = ("uvx", [DEFAULT_COST_EXPLORER_MCP_PACKAGE])
-    return _COST_EXPLORER_MCP_COMMAND_CACHE
+        return bool(v and isinstance(v, str) and v.strip())
+    return False
+
+
+def _log_cost_explorer_mcp_deprecation_if_needed() -> None:
+    """Log once when legacy Cost Explorer MCP settings are present."""
+    global _COST_EXPLORER_MCP_DEPRECATION_LOGGED
+    if _COST_EXPLORER_MCP_DEPRECATION_LOGGED:
+        return
+    if not (_cost_explorer_mcp_enable_requested() or _cost_explorer_mcp_command_configured()):
+        return
+    _COST_EXPLORER_MCP_DEPRECATION_LOGGED = True
+    logger.warning(
+        "Cost Explorer MCP (awslabs.cost-explorer-mcp-server) is deprecated and removed. "
+        "Enable FINOPS_MCP_BILLING_ENABLED instead (Billing and Cost Management MCP). "
+        "Migration guide: %s",
+        _COST_EXPLORER_MCP_MIGRATION_URL,
+    )
+
+
+def get_cost_explorer_mcp_enabled() -> bool:
+    """
+    Deprecated: the Cost Explorer MCP PyPI package is yanked. Always returns False.
+    Logs a warning when legacy enable/command settings are present.
+    """
+    global _COST_EXPLORER_MCP_ENABLED_CACHE
+    if _COST_EXPLORER_MCP_ENABLED_CACHE is not None:
+        return _COST_EXPLORER_MCP_ENABLED_CACHE
+    _log_cost_explorer_mcp_deprecation_if_needed()
+    _COST_EXPLORER_MCP_ENABLED_CACHE = False
+    return False
 
 
 def _env_pricing_mcp_enabled() -> bool | None:
@@ -1314,7 +1302,7 @@ def reset_settings_cache() -> None:
     global _KNOWLEDGE_MCP_ENABLED_CACHE, _KNOWLEDGE_MCP_URL_CACHE
     global _BILLING_MCP_ENABLED_CACHE, _BILLING_MCP_COMMAND_CACHE
     global _DOCUMENTATION_MCP_ENABLED_CACHE, _DOCUMENTATION_MCP_COMMAND_CACHE
-    global _COST_EXPLORER_MCP_ENABLED_CACHE, _COST_EXPLORER_MCP_COMMAND_CACHE
+    global _COST_EXPLORER_MCP_ENABLED_CACHE, _COST_EXPLORER_MCP_DEPRECATION_LOGGED
     global _PRICING_MCP_ENABLED_CACHE, _PRICING_MCP_COMMAND_CACHE
     global _CORE_MCP_ENABLED_CACHE, _CORE_MCP_COMMAND_CACHE, _CORE_MCP_ROLES_CACHE
     global _PDF_MCP_ENABLED_CACHE, _PDF_MCP_COMMAND_CACHE
@@ -1335,7 +1323,7 @@ def reset_settings_cache() -> None:
     _DOCUMENTATION_MCP_ENABLED_CACHE = None
     _DOCUMENTATION_MCP_COMMAND_CACHE = None
     _COST_EXPLORER_MCP_ENABLED_CACHE = None
-    _COST_EXPLORER_MCP_COMMAND_CACHE = None
+    _COST_EXPLORER_MCP_DEPRECATION_LOGGED = False
     _PRICING_MCP_ENABLED_CACHE = None
     _PRICING_MCP_COMMAND_CACHE = None
     _CORE_MCP_ENABLED_CACHE = None

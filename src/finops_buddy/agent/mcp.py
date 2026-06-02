@@ -13,8 +13,6 @@ from finops_buddy.settings import (
     get_core_mcp_command,
     get_core_mcp_enabled,
     get_core_mcp_roles,
-    get_cost_explorer_mcp_command,
-    get_cost_explorer_mcp_enabled,
     get_documentation_mcp_command,
     get_documentation_mcp_enabled,
     get_knowledge_mcp_enabled,
@@ -44,7 +42,6 @@ _KNOWLEDGE_MCP_TOOL_NAMES = frozenset(
 # MCP server display name for tool-name lookup (tool invocations in callback)
 _KNOWLEDGE_MCP_SERVER_NAME = "AWS Knowledge MCP Server"
 _DOCUMENTATION_MCP_SERVER_NAME = "AWS Documentation MCP Server"
-_COST_EXPLORER_MCP_SERVER_NAME = "AWS Cost Explorer MCP Server"
 _PRICING_MCP_SERVER_NAME = "AWS Pricing MCP Server"
 
 
@@ -212,37 +209,6 @@ def create_documentation_mcp_client(session: boto3.Session | None = None):
             startup_timeout=_MCP_STARTUP_TIMEOUT,
         )
         setattr(client, "_finops_mcp_server_name", "AWS Documentation MCP Server")
-        return client
-    except Exception:
-        return None
-
-
-def create_cost_explorer_mcp_client(session: boto3.Session | None = None):
-    """Create AWS Cost Explorer MCP client when enabled; otherwise return None.
-    Uses stdio transport (uvx subprocess); enable and command from settings/env.
-    When session is provided, passes AWS_PROFILE and AWS_REGION into the subprocess.
-    Disabled by default; BCM MCP covers Cost Explorer–style functionality."""
-    if not get_cost_explorer_mcp_enabled():
-        return None
-    try:
-        from mcp import StdioServerParameters, stdio_client
-        from strands.tools.mcp import MCPClient
-
-        command, args = get_cost_explorer_mcp_command()
-        env = dict(os.environ)
-        if session is not None:
-            profile = getattr(session, "profile_name", None)
-            if profile:
-                env["AWS_PROFILE"] = profile
-            region = getattr(session, "region_name", None)
-            if region:
-                env["AWS_REGION"] = region
-        params = StdioServerParameters(command=command, args=args, env=env)
-        client = MCPClient(
-            lambda: stdio_client(params),
-            startup_timeout=_MCP_STARTUP_TIMEOUT,
-        )
-        setattr(client, "_finops_mcp_server_name", _COST_EXPLORER_MCP_SERVER_NAME)
         return client
     except Exception:
         return None

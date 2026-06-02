@@ -24,7 +24,6 @@ from finops_buddy.agent.mcp import (
     _mcp_server_names_from_tools,
     create_billing_mcp_client,
     create_core_mcp_client,
-    create_cost_explorer_mcp_client,
     create_documentation_mcp_client,
     create_knowledge_mcp_client,
     create_pricing_mcp_client,
@@ -34,6 +33,7 @@ from finops_buddy.settings import (
     get_agent_max_completion_tokens,
     get_agent_model_id,
     get_agent_temperature,
+    get_cost_explorer_mcp_enabled,
     get_excel_mcp_enabled,
     get_openai_api_key,
     get_pdf_mcp_enabled,
@@ -173,12 +173,11 @@ def run_chat_loop(
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
+    get_cost_explorer_mcp_enabled()  # legacy config: logs deprecation warning if present
     progress("Loading Core MCP...")
     core_client = create_core_mcp_client(session)
     progress("Loading Billing MCP...")
     billing_client = create_billing_mcp_client(session)
-    progress("Loading Cost Explorer MCP...")
-    cost_explorer_client = create_cost_explorer_mcp_client(session)
     progress("Loading AWS Pricing MCP...")
     pricing_client = create_pricing_mcp_client(session)
     include_cost_tools = billing_client is None
@@ -196,8 +195,6 @@ def run_chat_loop(
     documentation_client = create_documentation_mcp_client(session)
     if documentation_client is not None:
         tools.append(documentation_client)
-    if cost_explorer_client is not None:
-        tools.append(cost_explorer_client)
     if pricing_client is not None:
         tools.append(pricing_client)
     if core_client is not None:

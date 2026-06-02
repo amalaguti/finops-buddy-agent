@@ -17,7 +17,6 @@ from finops_buddy.agent.runner import (
     build_agent,
     create_billing_mcp_client,
     create_core_mcp_client,
-    create_cost_explorer_mcp_client,
     create_documentation_mcp_client,
     create_knowledge_mcp_client,
     create_pricing_mcp_client,
@@ -205,12 +204,6 @@ def test_create_documentation_mcp_client_returns_none_when_disabled():
         assert create_documentation_mcp_client() is None
 
 
-def test_create_cost_explorer_mcp_client_returns_none_when_disabled():
-    """When Cost Explorer MCP is disabled, create_cost_explorer_mcp_client returns None."""
-    with patch("finops_buddy.agent.mcp.get_cost_explorer_mcp_enabled", return_value=False):
-        assert create_cost_explorer_mcp_client() is None
-
-
 def test_create_pricing_mcp_client_returns_none_when_disabled():
     """When Pricing MCP is disabled, create_pricing_mcp_client returns None."""
     with patch("finops_buddy.agent.mcp.get_pricing_mcp_enabled", return_value=False):
@@ -237,7 +230,6 @@ def test_build_agent_uses_only_in_process_tools_when_mcp_disabled():
         patch("finops_buddy.agent.mcp.get_knowledge_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.mcp.get_billing_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.mcp.get_documentation_mcp_enabled", return_value=False),
-        patch("finops_buddy.agent.mcp.get_cost_explorer_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.mcp.get_pricing_mcp_enabled", return_value=False),
         patch("strands.Agent", side_effect=capture_agent),
     ):
@@ -321,11 +313,9 @@ def test_build_agent_includes_billing_mcp_client_when_enabled():
     assert any("create_chart" in n for n in names)
 
 
-def test_build_agent_includes_cost_explorer_mcp_client_when_enabled():
-    """When Cost Explorer MCP is enabled, build_agent includes Cost Explorer MCP client in tools."""
+def test_build_agent_does_not_include_cost_explorer_mcp_when_legacy_enabled():
+    """Legacy Cost Explorer MCP enable flag does not attach a Cost Explorer MCP client."""
     session = MagicMock()
-    cost_explorer_client = MagicMock()
-    cost_explorer_client._finops_mcp_server_name = "AWS Cost Explorer MCP Server"
     captured_kwargs = {}
 
     def capture_agent(*args, **kwargs):
@@ -337,11 +327,7 @@ def test_build_agent_includes_cost_explorer_mcp_client_when_enabled():
         patch("finops_buddy.agent.mcp.get_knowledge_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.mcp.get_billing_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.mcp.get_documentation_mcp_enabled", return_value=False),
-        patch("finops_buddy.agent.mcp.get_cost_explorer_mcp_enabled", return_value=True),
-        patch(
-            "finops_buddy.agent.builder.create_cost_explorer_mcp_client",
-            return_value=cost_explorer_client,
-        ),
+        patch("finops_buddy.settings.get_cost_explorer_mcp_enabled", return_value=False),
         patch("strands.Agent", side_effect=capture_agent),
     ):
         build_agent(session, tools=None)
@@ -351,7 +337,7 @@ def test_build_agent_includes_cost_explorer_mcp_client_when_enabled():
         for t in tools
         if getattr(t, "_finops_mcp_server_name", None) == "AWS Cost Explorer MCP Server"
     ]
-    assert len(cost_explorer_tools) == 1
+    assert len(cost_explorer_tools) == 0
 
 
 def test_build_agent_includes_pricing_mcp_client_when_enabled():
@@ -371,7 +357,6 @@ def test_build_agent_includes_pricing_mcp_client_when_enabled():
         patch("finops_buddy.agent.mcp.get_core_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.mcp.get_billing_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.mcp.get_documentation_mcp_enabled", return_value=False),
-        patch("finops_buddy.agent.mcp.get_cost_explorer_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.mcp.get_pricing_mcp_enabled", return_value=True),
         patch(
             "finops_buddy.agent.builder.create_pricing_mcp_client",
@@ -442,7 +427,6 @@ def test_build_agent_includes_billing_cost_explorer_pricing_when_disabled_even_w
             return_value=core_client,
         ),
         patch("finops_buddy.agent.builder.create_billing_mcp_client", return_value=None),
-        patch("finops_buddy.agent.builder.create_cost_explorer_mcp_client", return_value=None),
         patch("finops_buddy.agent.builder.create_pricing_mcp_client", return_value=None),
         patch("strands.Agent", side_effect=capture_agent),
     ):
@@ -497,7 +481,6 @@ def test_openai_model_uses_max_completion_tokens():
         patch("finops_buddy.agent.mcp.get_knowledge_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.mcp.get_core_mcp_enabled", return_value=False),
         patch("finops_buddy.agent.builder.create_billing_mcp_client", return_value=None),
-        patch("finops_buddy.agent.builder.create_cost_explorer_mcp_client", return_value=None),
         patch("finops_buddy.agent.builder.create_pricing_mcp_client", return_value=None),
         patch(
             "strands.models.openai.OpenAIModel",

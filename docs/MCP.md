@@ -14,4 +14,6 @@ FinOps Buddy extends its capabilities through **MCP servers** — a plugin archi
 
 MCP servers are managed via **uv/uvx** (the fast Python package runner) and configured through environment variables or YAML settings. The agent dynamically discovers available tools and uses them to answer questions.
 
+**Note:** The standalone AWS Cost Explorer MCP server (`awslabs.cost-explorer-mcp-server`) was deprecated and removed from FinOps Buddy; use **Billing & Cost Management** MCP for Cost Explorer functionality.
+
 Enable flags, commands, and guardrail notes are documented in [Configuration](./CONFIGURATION.md).

@@ -18,7 +18,6 @@ def test_mcp_logic_in_mcp_module():
     assert hasattr(mcp, "create_knowledge_mcp_client")
     assert hasattr(mcp, "create_billing_mcp_client")
     assert hasattr(mcp, "create_documentation_mcp_client")
-    assert hasattr(mcp, "create_cost_explorer_mcp_client")
     assert hasattr(mcp, "create_pricing_mcp_client")
     assert hasattr(mcp, "create_core_mcp_client")
     assert hasattr(mcp, "_format_mcp_status")

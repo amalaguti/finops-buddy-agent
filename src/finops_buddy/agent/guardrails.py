@@ -88,7 +88,7 @@ MCP_READ_ONLY_TOOL_NAMES = frozenset(
         "list-pricing-plans",
         "list-pricing-rules-for-plan",
         "list-pricing-plans-for-rule",
-        # Standalone Cost Explorer MCP (when enabled)
+        # Billing / Cost Explorer MCP tools (read-only)
         "get_cost_and_usage",
         "get_cost_forecast",
         "get_dimension_values",
@@ -123,13 +123,6 @@ MCP_READ_ONLY_TOOL_NAMES = frozenset(
         "pricing_get_pricing_service_attributes",
         "pricing_get_pricing_attribute_values",
         "pricing_get_price_list_urls",
-        "cost_explorer_get_today_date",
-        "cost_explorer_get_dimension_values",
-        "cost_explorer_get_tag_values",
-        "cost_explorer_get_cost_forecast",
-        "cost_explorer_get_cost_and_usage_comparisons",
-        "cost_explorer_get_cost_comparison_drivers",
-        "cost_explorer_get_cost_and_usage",
         "syntheticdata_get_data_gen_instructions",
         "syntheticdata_validate_and_save_data",
         "syntheticdata_load_to_storage",

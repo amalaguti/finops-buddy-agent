@@ -14,7 +14,6 @@ from finops_buddy.agent.mcp import (
     _mcp_server_name_for_tool,
     create_billing_mcp_client,
     create_core_mcp_client,
-    create_cost_explorer_mcp_client,
     create_documentation_mcp_client,
     create_knowledge_mcp_client,
     create_pricing_mcp_client,
@@ -317,7 +316,6 @@ def build_agent(
     if tools is None:
         core_client = create_core_mcp_client(session)
         billing_client = create_billing_mcp_client(session)
-        cost_explorer_client = create_cost_explorer_mcp_client(session)
         pricing_client = create_pricing_mcp_client(session)
         include_cost_tools = billing_client is None
         tools = list(create_cost_tools(session, include_cost_tools=include_cost_tools))
@@ -330,8 +328,6 @@ def build_agent(
         documentation_client = create_documentation_mcp_client(session)
         if documentation_client is not None:
             tools.append(documentation_client)
-        if cost_explorer_client is not None:
-            tools.append(cost_explorer_client)
         if pricing_client is not None:
             tools.append(pricing_client)
         if core_client is not None:
